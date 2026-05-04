@@ -105,33 +105,57 @@
             <!-- Flight Results -->
             <div id="flightResults" class="space-y-4"></div>
 
-            <!-- Trending Destinations -->
-            <div id="trendingSection" class="mt-2 mb-8">
+                        <div id="trendingSection" class="mt-2 mb-8">
                 <h3 class="font-bold text-gray-800 mb-4 px-2 text-lg">🔥 Popular Routes</h3>
                 <div class="grid grid-cols-2 gap-4">
-                    <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 transition cursor-pointer" onclick="fillSearch('LHR', 'BKK')">
-                        <div class="text-2xl mb-2">🇬🇧➡️🇹🇭</div>
-                        <p class="font-bold text-gray-800">London → Bangkok</p>
-                        <p class="text-xs text-gray-400">From $650</p>
+                    
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden active:scale-95 transition cursor-pointer" onclick="fillSearch('LHR', 'BKK')">
+                        <div class="h-28 bg-[url('https://images.unsplash.com/photo-1513635269975-5969336cd174?auto=format&fit=crop&w=400&q=80')] bg-cover bg-center relative">
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
+                            <p class="absolute bottom-2 left-3 font-bold text-white text-sm">London</p>
+                        </div>
+                        <div class="p-3">
+                            <p class="text-[10px] font-bold text-gray-400 uppercase">To Bangkok</p>
+                            <p class="text-xs font-bold text-blue-600 mt-0.5">From $650</p>
+                        </div>
                     </div>
-                    <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 transition cursor-pointer" onclick="fillSearch('JFK', 'LAX')">
-                        <div class="text-2xl mb-2">🗽➡️🌴</div>
-                        <p class="font-bold text-gray-800">New York → LA</p>
-                        <p class="text-xs text-gray-400">From $129</p>
+
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden active:scale-95 transition cursor-pointer" onclick="fillSearch('JFK', 'LAX')">
+                        <div class="h-28 bg-[url('https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?auto=format&fit=crop&w=400&q=80')] bg-cover bg-center relative">
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
+                            <p class="absolute bottom-2 left-3 font-bold text-white text-sm">New York</p>
+                        </div>
+                        <div class="p-3">
+                            <p class="text-[10px] font-bold text-gray-400 uppercase">To LA</p>
+                            <p class="text-xs font-bold text-blue-600 mt-0.5">From $129</p>
+                        </div>
                     </div>
-                    <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 transition cursor-pointer" onclick="fillSearch('DXB', 'SIN')">
-                        <div class="text-2xl mb-2">🏙️➡️🦁</div>
-                        <p class="font-bold text-gray-800">Dubai → Singapore</p>
-                        <p class="text-xs text-gray-400">From $320</p>
+
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden active:scale-95 transition cursor-pointer" onclick="fillSearch('DXB', 'SIN')">
+                        <div class="h-28 bg-[url('https://images.unsplash.com/photo-1512453979436-5a5368ef9258?auto=format&fit=crop&w=400&q=80')] bg-cover bg-center relative">
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
+                            <p class="absolute bottom-2 left-3 font-bold text-white text-sm">Dubai</p>
+                        </div>
+                        <div class="p-3">
+                            <p class="text-[10px] font-bold text-gray-400 uppercase">To Singapore</p>
+                            <p class="text-xs font-bold text-blue-600 mt-0.5">From $320</p>
+                        </div>
                     </div>
-                    <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 transition cursor-pointer" onclick="fillSearch('KTM', 'DXB')">
-                        <div class="text-2xl mb-2">🏔️➡️🏙️</div>
-                        <p class="font-bold text-gray-800">Kathmandu → Dubai</p>
-                        <p class="text-xs text-gray-400">From $359</p>
+
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden active:scale-95 transition cursor-pointer" onclick="fillSearch('KTM', 'DXB')">
+                        <div class="h-28 bg-[url('https://images.unsplash.com/photo-1544735716-392fe2489ffa?auto=format&fit=crop&w=400&q=80')] bg-cover bg-center relative">
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
+                            <p class="absolute bottom-2 left-3 font-bold text-white text-sm">Kathmandu</p>
+                        </div>
+                        <div class="p-3">
+                            <p class="text-[10px] font-bold text-gray-400 uppercase">To Dubai</p>
+                            <p class="text-xs font-bold text-blue-600 mt-0.5">From $359</p>
+                        </div>
                     </div>
+
                 </div>
             </div>
-        </div>
+
 
         <!-- TRACKER VIEW -->
         <div id="view-tracker" class="hidden">
