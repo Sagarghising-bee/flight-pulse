@@ -6,7 +6,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // ========== 2. YOUR BACKEND URL (Replace with your Render URL) ==========
-const API_URL = 'https://flightpulse-api.onrender.com'; // 🔴 CHANGE THIS
+const API_URL = '';
 
 // ========== 3. AIRPORT INTEL ==========
 const airportIntel = {
