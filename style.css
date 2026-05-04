@@ -1,0 +1,57 @@
+/* style.css */
+
+/* =========================================
+   1. NATIVE APP BEHAVIORS
+   ========================================= */
+body {
+    /* Removes the ugly blue flash when you tap buttons on Android */
+    -webkit-tap-highlight-color: transparent;
+    
+    /* Prevents accidental text selection while scrolling */
+    user-select: none; 
+}
+
+/* We DO want users to be able to select text inside input fields */
+input {
+    user-select: auto;
+}
+
+/* =========================================
+   2. CLEAN UI (HIDING SCROLLBARS)
+   ========================================= */
+/* This hides the horizontal scrollbar on the Trending Destinations */
+.hide-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.hide-scrollbar {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none;    /* Firefox */
+}
+
+/* =========================================
+   3. PREMIUM ANIMATIONS
+   ========================================= */
+/* A smooth, app-like slide-up effect for flight results */
+.fade-in {
+    opacity: 0; /* Start invisible */
+    animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideUpFade {
+    0% {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* =========================================
+   4. DEVICE SUPPORT
+   ========================================= */
+/* Adds padding at the bottom for iPhones with the home bar */
+.pb-safe {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+}
