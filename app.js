@@ -94,14 +94,6 @@ async function searchFlight() {
         return;
     }
 
-    console.log(`🔍 Search initiated:`);
-    console.log(`  From: ${from}, To: ${to}`);
-    console.log(`  Depart: ${departDate}`);
-    console.log(`  Trip Type: ${currentTripType}`);
-    if (currentTripType === 'roundtrip') {
-        console.log(`  Return: ${returnDate}`);
-    }
-
     localStorage.setItem('lastSearchFrom', from);
     localStorage.setItem('lastSearchTo', to);
     localStorage.setItem('lastDepartDate', departDate);
@@ -128,7 +120,7 @@ async function searchFlight() {
         <div class="text-center py-12">
             <div class="loader mx-auto"></div>
             <p class="mt-4 text-gray-500 font-medium">Searching real flight prices...</p>
-            <p class="text-xs text-gray-400 mt-2">${from} → ${to} • ${departDate}</p>
+            <p class="text-xs text-gray-400 mt-2">${from} → ${to} • ${departDate} • ${adults} adult${adults > 1 ? 's' : ''}</p>
         </div>
     `;
     
@@ -138,8 +130,6 @@ async function searchFlight() {
         if (currentTripType === 'roundtrip' && returnDate && returnDate.length > 0) {
             apiUrl += `&returnDate=${returnDate}`;
         }
-        
-        console.log("📡 Calling API:", apiUrl);
         
         const response = await fetch(apiUrl);
         const data = await response.json();
@@ -172,7 +162,27 @@ async function searchFlight() {
     }
 }
 
-// ========== 6. RENDER FLIGHT RESULTS (UPGRADED WITH CARBON CALC) ==========
+// ========== 6. PROPRIETARY ECO-CALCULATOR ==========
+function getCarbonFootprint(durationMins, stops) {
+    if (!durationMins) {
+        return { text: "CO₂ Unknown", classes: "bg-gray-100 text-gray-600 border-gray-200" };
+    }
+    
+    // ~1.5 kg of CO2 per minute + 50kg penalty per layover
+    let baseCO2 = durationMins * 1.5;
+    let layoverPenalty = stops * 50; 
+    let totalCO2 = Math.round(baseCO2 + layoverPenalty);
+
+    if (stops === 0 && totalCO2 < 500) {
+        return { text: `🌱 ${totalCO2}kg CO₂ • Eco-Friendly`, classes: "bg-green-50 text-green-700 border-green-200" };
+    } else if (stops >= 2 || totalCO2 > 1000) {
+        return { text: `⚠️ ${totalCO2}kg CO₂ • High Impact`, classes: "bg-red-50 text-red-700 border-red-200" };
+    } else {
+        return { text: `☁️ ${totalCO2}kg CO₂ • Standard`, classes: "bg-slate-50 text-slate-600 border-slate-200" };
+    }
+}
+
+// ========== 7. RENDER FLIGHT RESULTS (UPGRADED) ==========
 function renderFlightResults(flights, from, to, googleFlightsUrl) {
     const container = document.getElementById('flightResults');
     container.innerHTML = '';
@@ -197,7 +207,7 @@ function renderFlightResults(flights, from, to, googleFlightsUrl) {
         
         let bookingUrl = googleFlightsUrl || `https://www.google.com/travel/flights?q=flights+from+${from}+to+${to}`;
         
-        // 👑 NEW: Call our proprietary Carbon Calculator
+        // Call the Eco Calculator directly from inside this file
         const ecoData = getCarbonFootprint(flight.total_duration, stops);
         
         const card = document.createElement('div');
@@ -242,7 +252,7 @@ function renderFlightResults(flights, from, to, googleFlightsUrl) {
     });
 }
 
-// ========== 7. FILL SEARCH FROM TRENDING ==========
+// ========== 8. FILL SEARCH FROM TRENDING ==========
 function fillSearch(from, to) {
     document.getElementById('fromInput').value = from;
     document.getElementById('destInput').value = to;
@@ -255,7 +265,7 @@ function fillSearch(from, to) {
     searchFlight();
 }
 
-// ========== 8. LIVE TRACKER ==========
+// ========== 9. LIVE TRACKER ==========
 async function trackFlight(btn) {
     const flightNo = document.getElementById('flightNoInput').value.trim().toUpperCase();
     if (!flightNo) {
@@ -276,7 +286,7 @@ async function trackFlight(btn) {
                 <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
                 <span class="font-bold text-green-700 text-sm">Tracking ${flightNo}</span>
             </div>
-            <p class="text-sm text-gray-600 mt-2">✅ FlightAware opened with real-time position.</p>
+            <p class="text-sm text-gray-600 mt-2">✅ FlightAware opened with real-time position, maps, and status.</p>
         </div>
     `;
     
@@ -284,11 +294,11 @@ async function trackFlight(btn) {
     btn.disabled = false;
 }
 
-// ========== 9. LAYOVER INTEL ==========
+// ========== 10. LAYOVER INTEL ==========
 async function getLayoverIntel(btn) {
     const airport = document.getElementById('airportInput').value.trim().toUpperCase();
     if (!airport) {
-        alert("Please enter an airport code");
+        alert("Please enter an airport code (e.g., DXB, LHR, BKK)");
         return;
     }
     
@@ -298,9 +308,9 @@ async function getLayoverIntel(btn) {
     await new Promise(r => setTimeout(r, 500));
     
     const intel = airportIntel[airport] || {
-        tip: `Standard transit at ${airport}. Allow 2-3 hours.`,
-        bestLounge: "Check airport website",
-        wifi: "Free WiFi available"
+        tip: `Standard transit at ${airport}. Allow 2-3 hours for international connections.`,
+        bestLounge: "Check with your airline for lounge access",
+        wifi: "Free WiFi usually available"
     };
     
     document.getElementById('layoverResult').innerHTML = `
@@ -313,11 +323,11 @@ async function getLayoverIntel(btn) {
             </div>
             <div class="flex gap-2 mt-4">
                 <button onclick="window.open('https://www.google.com/search?q=${airport}+airport+guide', '_blank')" 
-                        class="flex-1 bg-orange-100 text-orange-700 font-bold py-2 rounded-xl text-sm">
+                        class="flex-1 bg-orange-100 text-orange-700 font-bold py-2 rounded-xl text-sm hover:bg-orange-200 transition">
                     🔍 Full Guide
                 </button>
                 <button onclick="window.open('https://www.flightradar24.com/airport/${airport}', '_blank')" 
-                        class="flex-1 bg-blue-100 text-blue-700 font-bold py-2 rounded-xl text-sm">
+                        class="flex-1 bg-blue-100 text-blue-700 font-bold py-2 rounded-xl text-sm hover:bg-blue-200 transition">
                     📡 Live Traffic
                 </button>
             </div>
@@ -327,7 +337,7 @@ async function getLayoverIntel(btn) {
     btn.innerText = originalText;
 }
 
-// ========== 10. AIRPORT AUTOCOMPLETE ==========
+// ========== 11. AIRPORT AUTOCOMPLETE ==========
 let searchTimeout;
 
 function setupAirportSearch(inputId, suggestionsId) {
@@ -345,7 +355,7 @@ function setupAirportSearch(inputId, suggestionsId) {
             return;
         }
         
-        suggestionsDiv.innerHTML = '<div class="suggestion-item text-gray-400">✈️ Searching...</div>';
+        suggestionsDiv.innerHTML = '<div class="suggestion-item text-gray-400">✈️ Searching airports...</div>';
         suggestionsDiv.classList.remove('hidden');
         
         searchTimeout = setTimeout(async () => {
@@ -355,32 +365,39 @@ function setupAirportSearch(inputId, suggestionsId) {
                 
                 if (data.airports && data.airports.length > 0) {
                     suggestionsDiv.innerHTML = data.airports.map(airport => `
-                        <div class="suggestion-item" onclick="selectAirport('${inputId}', '${airport.code}', '${airport.name}')">
+                        <div class="suggestion-item" onclick="selectAirport('${inputId}', '${airport.code}', '${airport.name}', '${airport.city}')">
                             <div class="flex justify-between items-center">
-                                <span class="font-bold text-gray-800">${airport.code}</span>
-                                <span class="text-sm text-gray-600">${airport.name}</span>
+                                <div>
+                                    <span class="font-bold text-gray-800">${airport.code}</span>
+                                    <span class="text-sm text-gray-600 ml-2">${airport.name}</span>
+                                </div>
+                                <span class="text-xs text-blue-600">${airport.city}</span>
                             </div>
-                            <div class="text-xs text-gray-400">${airport.city}, ${airport.country}</div>
+                            ${airport.country ? `<div class="text-xs text-gray-400 mt-1">${airport.country}</div>` : ''}
                         </div>
                     `).join('');
                 } else {
-                    suggestionsDiv.innerHTML = '<div class="suggestion-item text-gray-400">No airports found</div>';
+                    suggestionsDiv.innerHTML = '<div class="suggestion-item text-gray-400">📍 No airports found. Try typing airport code (e.g., LHR)</div>';
                 }
             } catch (error) {
-                suggestionsDiv.innerHTML = '<div class="suggestion-item text-red-500">Error loading</div>';
+                console.error("Airport search error:", error);
+                suggestionsDiv.innerHTML = '<div class="suggestion-item text-red-500">⚠️ Unable to load suggestions</div>';
             }
         }, 300);
     });
 }
 
-function selectAirport(inputId, code, name) {
-    document.getElementById(inputId).value = code;
+function selectAirport(inputId, code, name, city) {
+    const input = document.getElementById(inputId);
+    input.value = code;
     const suggestionsId = inputId === 'fromInput' ? 'fromSuggestions' : 'destSuggestions';
     document.getElementById(suggestionsId).classList.add('hidden');
 }
 
-// ========== 11. INITIALIZATION ==========
+// ========== 12. INITIALIZATION ==========
 window.addEventListener('load', () => {
+    console.log("🚀 FlightPulse initializing...");
+    
     const savedFrom = localStorage.getItem('lastSearchFrom');
     const savedTo = localStorage.getItem('lastSearchTo');
     const savedDate = localStorage.getItem('lastDepartDate');
@@ -406,59 +423,7 @@ window.addEventListener('load', () => {
     fetch('/api/health')
         .then(res => res.json())
         .then(data => console.log("✅ API connected:", data))
-        .catch(err => console.error("❌ API failed:", err));
+        .catch(err => console.error("❌ API connection failed:", err));
     
     console.log("✅ FlightPulse ready!");
 });
-
-// ========== 12. CSS STYLES ==========
-if (!document.querySelector('#flightpulse-styles')) {
-    const style = document.createElement('style');
-    style.id = 'flightpulse-styles';
-    style.textContent = `
-        .loader {
-            width: 28px;
-            height: 28px;
-            border: 3px solid #e2e8f0;
-            border-top-color: #2563EB;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            display: inline-block;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        .fade-in {
-            opacity: 0;
-            animation: fadeIn 0.4s ease forwards;
-        }
-        @keyframes fadeIn {
-            to { opacity: 1; }
-        }
-        .dropdown-suggestions {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
-            max-height: 250px;
-            overflow-y: auto;
-            z-index: 50;
-            margin-top: 4px;
-        }
-        .suggestion-item {
-            padding: 12px 16px;
-            cursor: pointer;
-            border-bottom: 1px solid #f0f0f0;
-        }
-        .suggestion-item:hover {
-            background: #f3f4f6;
-        }
-        .pb-safe {
-            padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
-        }
-    `;
-    document.head.appendChild(style);
-}
