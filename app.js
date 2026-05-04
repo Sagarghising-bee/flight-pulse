@@ -23,6 +23,7 @@ const airportIntel = {
 let currentTripType = 'oneway';
 
 function setTripType(type) {
+    console.log(`🔄 Setting trip type to: ${type}`);
     currentTripType = type;
     const oneWayBtn = document.getElementById('oneWayBtn');
     const roundTripBtn = document.getElementById('roundTripBtn');
@@ -34,12 +35,23 @@ function setTripType(type) {
         roundTripBtn.classList.remove('bg-blue-600', 'text-white');
         roundTripBtn.classList.add('bg-gray-100', 'text-gray-600');
         if (returnRow) returnRow.classList.add('hidden');
+        // IMPORTANT: Clear return date value when switching to one-way
+        if (document.getElementById('returnDate')) {
+            document.getElementById('returnDate').value = '';
+        }
     } else {
         roundTripBtn.classList.remove('bg-gray-100', 'text-gray-600');
         roundTripBtn.classList.add('bg-blue-600', 'text-white');
         oneWayBtn.classList.remove('bg-blue-600', 'text-white');
         oneWayBtn.classList.add('bg-gray-100', 'text-gray-600');
         if (returnRow) returnRow.classList.remove('hidden');
+        // Set default return date (7 days after departure)
+        const departDate = document.getElementById('departDate').value;
+        if (departDate && !document.getElementById('returnDate').value) {
+            const returnDateObj = new Date(departDate);
+            returnDateObj.setDate(returnDateObj.getDate() + 7);
+            document.getElementById('returnDate').value = returnDateObj.toISOString().split('T')[0];
+        }
     }
 }
 
@@ -84,6 +96,15 @@ async function searchFlight() {
         return;
     }
 
+    console.log(`🔍 Search initiated:`);
+    console.log(`  From: ${from}, To: ${to}`);
+    console.log(`  Depart: ${departDate}`);
+    console.log(`  Trip Type: ${currentTripType}`);
+    if (currentTripType === 'roundtrip') {
+        console.log(`  Return: ${returnDate}`);
+    }
+    console.log(`  Adults: ${adults}, Children: ${children}, Cabin: ${cabinClass}`);
+
     localStorage.setItem('lastSearchFrom', from);
     localStorage.setItem('lastSearchTo', to);
     localStorage.setItem('lastDepartDate', departDate);
@@ -115,13 +136,15 @@ async function searchFlight() {
     `;
     
     try {
+        // Build URL - ONLY include returnDate for round trips
         let apiUrl = `/api/search-flights?from=${from}&to=${to}&departDate=${departDate}&adults=${adults}&children=${children}&cabinClass=${cabinClass}&tripType=${currentTripType}`;
         
-        if (currentTripType === 'roundtrip' && returnDate) {
+        // CRITICAL: Only add returnDate if it's a round trip AND returnDate has a value
+        if (currentTripType === 'roundtrip' && returnDate && returnDate.length > 0) {
             apiUrl += `&returnDate=${returnDate}`;
         }
         
-        console.log("Calling backend:", apiUrl);
+        console.log("📡 Calling API:", apiUrl);
         
         const response = await fetch(apiUrl);
         const data = await response.json();
@@ -231,6 +254,10 @@ function fillSearch(from, to) {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 30);
     document.getElementById('departDate').value = tomorrow.toISOString().split('T')[0];
+    // Ensure trip type is one-way when clicking trending
+    if (currentTripType !== 'oneway') {
+        setTripType('oneway');
+    }
     searchFlight();
 }
 
@@ -365,6 +392,8 @@ function selectAirport(inputId, code, name, city) {
 
 // ========== 11. INITIALIZATION ==========
 window.addEventListener('load', () => {
+    console.log("🚀 FlightPulse initializing...");
+    
     const savedFrom = localStorage.getItem('lastSearchFrom');
     const savedTo = localStorage.getItem('lastSearchTo');
     const savedDate = localStorage.getItem('lastDepartDate');
@@ -387,8 +416,7 @@ window.addEventListener('load', () => {
     // Initialize airport autocomplete
     setupAirportSearch('fromInput', 'fromSuggestions');
     setupAirportSearch('destInput', 'destSuggestions');
-    
-    // Test API connection
+      // Test API connection
     fetch('/api/health')
         .then(res => res.json())
         .then(data => console.log("✅ API connected:", data))
