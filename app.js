@@ -5,17 +5,44 @@ if ('serviceWorker' in navigator) {
         .catch(err => console.log("SW Error:", err));
 }
 
-// ========== 2. AIRPORT INTEL DATABASE ==========
+// ========== 2. YOUR SERPAPI KEY ==========
+const SERPAPI_KEY = 'c017ced4ba739491ba8c0d57bd70625f3cd6188eb7db282e742c2a690031dc35';
+
+// ========== 3. AIRPORT INTEL ==========
 const airportIntel = {
-    "LHR": { tip: "Very busy. Allow 3 hours for connections.", bestLounge: "Cathay Pacific Lounge", wifi: "Free 60min" },
+    "LHR": { tip: "Very busy. Allow 3 hours.", bestLounge: "Cathay Pacific Lounge", wifi: "Free 60min" },
     "BKK": { tip: "Busy but organized. Great food courts.", bestLounge: "Miracle Lounge", wifi: "Free 2 hours" },
-    "DXB": { tip: "Ultra-busy. Security ~25min. Zen Garden near Gate B7.", bestLounge: "Emirates Lounge B Gates", wifi: "DXB Free WiFi" },
-    "KTM": { tip: "Moderate crowds. Fast security. Try Himalayan Java for views.", bestLounge: "Civil Aviation Lounge", wifi: "Free 30min" },
-    "SIN": { tip: "Very efficient. Jewel Waterfall is a must if 4+ hours.", bestLounge: "SilverKris Lounge", wifi: "Unlimited Free" },
-    "JFK": { tip: "Arrive 3 hours early. TSA PreCheck recommended.", bestLounge: "Delta Sky Club T4", wifi: "Free" }
+    "DXB": { tip: "Ultra-busy. Zen Garden near Gate B7.", bestLounge: "Emirates Lounge", wifi: "Free WiFi" },
+    "KTM": { tip: "Moderate crowds. Fast security.", bestLounge: "Civil Aviation Lounge", wifi: "Free 30min" },
+    "SIN": { tip: "Very efficient. Jewel Waterfall!", bestLounge: "SilverKris Lounge", wifi: "Unlimited" },
+    "JFK": { tip: "Arrive 3 hours early.", bestLounge: "Delta Sky Club T4", wifi: "Free" }
 };
 
-// ========== 3. TAB SWITCHING ==========
+// ========== 4. TRIP TYPE STATE ==========
+let currentTripType = 'oneway';
+
+function setTripType(type) {
+    currentTripType = type;
+    const oneWayBtn = document.getElementById('oneWayBtn');
+    const roundTripBtn = document.getElementById('roundTripBtn');
+    const returnRow = document.getElementById('returnDateRow');
+    
+    if (type === 'oneway') {
+        oneWayBtn.classList.remove('bg-gray-100', 'text-gray-600');
+        oneWayBtn.classList.add('bg-blue-600', 'text-white');
+        roundTripBtn.classList.remove('bg-blue-600', 'text-white');
+        roundTripBtn.classList.add('bg-gray-100', 'text-gray-600');
+        if (returnRow) returnRow.classList.add('hidden');
+    } else {
+        roundTripBtn.classList.remove('bg-gray-100', 'text-gray-600');
+        roundTripBtn.classList.add('bg-blue-600', 'text-white');
+        oneWayBtn.classList.remove('bg-blue-600', 'text-white');
+        oneWayBtn.classList.add('bg-gray-100', 'text-gray-600');
+        if (returnRow) returnRow.classList.remove('hidden');
+    }
+}
+
+// ========== 5. TAB SWITCHING ==========
 function switchTab(viewId, btn) {
     ['view-search', 'view-tracker', 'view-layovers'].forEach(id => {
         const el = document.getElementById(id);
@@ -34,19 +61,30 @@ function switchTab(viewId, btn) {
     }
 }
 
-// ========== 4. SEARCH FLIGHTS - CALL YOUR BACKEND API ==========
+// ========== 6. MAIN SEARCH FUNCTION - SERPAPI ==========
 async function searchFlight() {
     const from = document.getElementById('fromInput').value.trim().toUpperCase();
     const to = document.getElementById('destInput').value.trim().toUpperCase();
+    const departDate = document.getElementById('departDate').value;
+    const returnDate = document.getElementById('returnDate')?.value;
+    const adults = document.getElementById('adultsCount')?.value || 1;
+    const children = document.getElementById('childrenCount')?.value || 0;
+    const cabinClass = document.getElementById('cabinClass')?.value || 'ECONOMY';
     
     if (!from || !to) {
         alert("Please enter both airports ✈️");
+        return;
+    }
+    
+    if (!departDate) {
+        alert("Please select a departure date 📅");
         return;
     }
 
     // Save to localStorage
     localStorage.setItem('lastSearchFrom', from);
     localStorage.setItem('lastSearchTo', to);
+    localStorage.setItem('lastDepartDate', departDate);
 
     // Hide trending section
     const trending = document.getElementById('trendingSection');
@@ -60,215 +98,230 @@ async function searchFlight() {
         infoText.innerHTML = `
             <div class="space-y-1">
                 <p>📍 <strong>${to}</strong>: ${airport.tip}</p>
-                <p>🛋️ Best lounge: ${airport.bestLounge}</p>
+                <p>🛋️ Lounge: ${airport.bestLounge}</p>
                 <p>📶 WiFi: ${airport.wifi}</p>
             </div>
         `;
-    } else if (infoText) {
-        infoText.innerText = `✈️ Flying to ${to}. Getting live prices...`;
+        infoBox.classList.remove('hidden');
     }
-    if (infoBox) infoBox.classList.remove('hidden');
     
     // Show loading state
     const container = document.getElementById('flightResults');
     container.innerHTML = `
         <div class="text-center py-12">
             <div class="loader mx-auto"></div>
-            <p class="mt-4 text-gray-500 font-medium">Fetching live flight prices...</p>
-            <p class="text-xs text-gray-400 mt-2">Checking ${from} → ${to}</p>
+            <p class="mt-4 text-gray-500 font-medium">Searching real flight prices on Google Flights...</p>
+            <p class="text-xs text-gray-400 mt-2">${from} → ${to} • ${departDate} • ${adults} adult${adults > 1 ? 's' : ''}</p>
         </div>
     `;
     
     try {
-        // IMPORTANT: Use RELATIVE path (same domain as your app)
-        const response = await fetch(`/api/flights?from=${from}&to=${to}`);
+        // Map cabin class to SerpApi travel_class parameter
+        const classMap = {
+            'ECONOMY': '1',
+            'PREMIUM_ECONOMY': '2',
+            'BUSINESS': '3',
+            'FIRST': '4'
+        };
         
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
+        // Build the URL
+        let apiUrl = `https://serpapi.com/search.json?engine=google_flights&departure_id=${from}&arrival_id=${to}&outbound_date=${departDate}&currency=USD&hl=en&gl=us&adults=${adults}&travel_class=${classMap[cabinClass] || '1'}&api_key=${SERPAPI_KEY}`;
+        
+        if (children && parseInt(children) > 0) {
+            apiUrl += `&children=${children}`;
         }
         
+        if (currentTripType === 'roundtrip' && returnDate) {
+            apiUrl += `&return_date=${returnDate}`;
+        }
+        
+        // Enable deep search for complete results
+        apiUrl += `&deep_search=true`;
+        
+        console.log("Fetching from SerpApi...");
+        
+        const response = await fetch(apiUrl);
         const data = await response.json();
         
-        if (data.success && data.flights && data.flights.length > 0) {
-            renderLiveFlightCards(data.flights, from, to);
-        } else {
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        // Extract flights
+        let flights = [];
+        if (data.best_flights && data.best_flights.length > 0) {
+            flights = data.best_flights;
+        }
+        if (data.other_flights && data.other_flights.length > 0) {
+            flights = flights.concat(data.other_flights);
+        }
+        
+        if (flights.length === 0) {
             container.innerHTML = `
                 <div class="bg-yellow-50 rounded-2xl p-8 text-center border border-yellow-200">
                     <p class="text-yellow-700 font-medium">⚠️ No flights found for ${from} → ${to}</p>
-                    <p class="text-sm text-yellow-600 mt-2">Try different airports or check back later</p>
+                    <p class="text-sm text-yellow-600 mt-2">Try different dates or airports</p>
                 </div>
             `;
+            return;
         }
+        
+        // Sort by price (cheapest first)
+        flights.sort((a, b) => a.price - b.price);
+        
+        renderFlightResults(flights, from, to, data.search_metadata?.google_flights_url);
+        
     } catch (error) {
-        console.error("Flight search error:", error);
+        console.error("SerpApi Error:", error);
         container.innerHTML = `
             <div class="bg-red-50 rounded-2xl p-8 text-center border border-red-200">
-                <p class="text-red-600 font-medium">🔴 Unable to fetch live prices</p>
-                <p class="text-sm text-red-500 mt-2">Please check your connection</p>
+                <p class="text-red-600 font-medium">🔴 Unable to fetch flight prices</p>
+                <p class="text-sm text-red-500 mt-2">${error.message}</p>
                 <button onclick="searchFlight()" class="mt-4 bg-red-600 text-white px-4 py-2 rounded-lg text-sm">Retry</button>
             </div>
         `;
     }
 }
 
-function renderLiveFlightCards(flights, from, to) {
+// ========== 7. RENDER FLIGHT RESULTS ==========
+function renderFlightResults(flights, from, to, googleFlightsUrl) {
     const container = document.getElementById('flightResults');
     container.innerHTML = '';
     
-    // Add header with timestamp
-    const timestamp = flights[0]?.lastUpdated || new Date().toLocaleTimeString();
+    // Header
     const header = document.createElement('div');
     header.className = 'text-right text-[10px] text-gray-400 mb-2';
-    header.innerHTML = `🟢 Live prices • Updated ${timestamp} • <span class="text-green-600">${flights.length} flights found</span>`;
+    header.innerHTML = `🟢 Live from Google Flights • ${flights.length} options found • Sorted by price`;
     container.appendChild(header);
     
     flights.forEach((flight, idx) => {
         const isCheapest = idx === 0;
+        const firstLeg = flight.flights ? flight.flights[0] : flight;
+        const lastLeg = flight.flights ? flight.flights[flight.flights.length - 1] : flight;
+        
+        const airline = firstLeg.airline || "Airline";
+        const flightNumber = firstLeg.flight_number || "";
+        const depTime = firstLeg.departure_airport?.time?.split(' ')[1] || firstLeg.departure_time || "00:00";
+        const arrTime = lastLeg.arrival_airport?.time?.split(' ')[1] || lastLeg.arrival_time || "00:00";
+        const duration = flight.total_duration ? `${Math.floor(flight.total_duration / 60)}h ${flight.total_duration % 60}m` : "N/A";
+        const stops = flight.flights ? flight.flights.length - 1 : 0;
+        const price = flight.price || flight.total_price || 0;
+        
+        // Build deep link to this specific flight
+        let bookingUrl = googleFlightsUrl || `https://www.google.com/travel/flights?q=flights+from+${from}+to+${to}`;
+        
         const card = document.createElement('div');
         card.className = `bg-white rounded-2xl shadow-sm border ${isCheapest ? 'border-green-300 ring-2 ring-green-200' : 'border-gray-100'} p-5 mb-4 fade-in hover:shadow-md transition-all`;
         card.style.animationDelay = `${idx * 0.05}s`;
         
-        const stopText = flight.stops === 0 ? "🟢 Direct" : `🔁 ${flight.stops} stop${flight.stops > 1 ? 's' : ''}`;
-        const priceColor = isCheapest ? "text-green-600" : "text-gray-900";
-        const priceBadge = isCheapest ? '<span class="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded-lg ml-2">🏆 CHEAPEST</span>' : '';
-        
         card.innerHTML = `
             <div class="flex justify-between items-start mb-3">
                 <div class="flex items-center gap-2 flex-wrap">
-                    <span class="text-xs font-bold bg-blue-50 text-blue-700 px-3 py-1 rounded-lg">${flight.airline}</span>
-                    ${priceBadge}
+                    <span class="text-xs font-bold bg-blue-50 text-blue-700 px-3 py-1 rounded-lg">${airline}</span>
+                    ${flightNumber ? `<span class="text-[10px] text-gray-400">${flightNumber}</span>` : ''}
+                    ${isCheapest ? '<span class="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded-lg">🏆 CHEAPEST</span>' : ''}
                 </div>
                 <div class="text-right">
-                    <span class="text-2xl font-bold ${priceColor}">$${flight.price}</span>
-                    <span class="text-[10px] text-gray-400 block">${flight.currency || 'USD'}</span>
+                    <span class="text-2xl font-bold text-gray-900">$${price}</span>
+                    <span class="text-[10px] text-gray-400 block">${stops === 0 ? 'Direct' : stops + ' stop' + (stops > 1 ? 's' : '')}</span>
                 </div>
             </div>
             
-            <div class="flex justify-between items-center mb-3">
+            <div class="flex justify-between items-center mb-4">
                 <div class="text-center">
-                    <p class="text-xl font-bold text-gray-800">${flight.depTime}</p>
-                    <p class="text-gray-400 text-[10px] font-bold mt-0.5">${from}</p>
+                    <p class="text-xl font-bold text-gray-800">${depTime}</p>
+                    <p class="text-gray-400 text-[10px] font-bold">${from}</p>
                 </div>
                 <div class="flex-1 px-3 text-center">
-                    <div class="text-gray-400 text-xs font-mono">✈️ ${flight.duration}</div>
-                    <div class="w-full h-px bg-gray-200 my-1.5"></div>
-                    <div class="text-[9px] text-gray-300 font-mono">${flight.flightNo}</div>
+                    <div class="text-gray-400 text-xs">✈️ ${duration}</div>
+                    <div class="w-full h-px bg-gray-200 my-1"></div>
                 </div>
                 <div class="text-center">
-                    <p class="text-xl font-bold text-gray-800">${flight.arrTime}</p>
-                    <p class="text-gray-400 text-[10px] font-bold mt-0.5">${to}</p>
+                    <p class="text-xl font-bold text-gray-800">${arrTime}</p>
+                    <p class="text-gray-400 text-[10px] font-bold">${to}</p>
                 </div>
             </div>
             
-            <div class="flex items-center justify-between gap-3">
-                <div class="flex items-center gap-1 text-[10px] text-gray-500">
-                    <span>🧳 ${flight.baggage || "20kg"}</span>
-                    <span class="mx-1">•</span>
-                    <span>${stopText}</span>
-                </div>
-                <button onclick="window.open('${flight.bookingUrl}', '_blank')" 
-                        class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-xl transition-all text-sm flex items-center justify-center gap-2">
-                    ✈️ Book Now
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
-                </button>
-            </div>
+            <button onclick="window.open('${bookingUrl}', '_blank')" 
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition text-sm flex items-center justify-center gap-2">
+                ✈️ Book on Google Flights — $${price}
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+            </button>
+            <p class="text-[10px] text-center text-gray-400 mt-2">
+                ✓ Price guaranteed • Redirects to Google Flights with your flight pre-selected
+            </p>
         `;
         container.appendChild(card);
     });
-    
-    // Add note
-    const note = document.createElement('div');
-    note.className = 'text-center text-[10px] text-gray-400 mt-2 mb-8';
-    note.innerHTML = `💡 Prices update daily. Click "Book Now" for final price on airline website.`;
-    container.appendChild(note);
 }
 
-// ========== 5. FILL SEARCH FROM TRENDING ==========
+// ========== 8. FILL SEARCH FROM TRENDING ==========
 function fillSearch(from, to) {
     document.getElementById('fromInput').value = from;
     document.getElementById('destInput').value = to;
+    // Set default date to tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    document.getElementById('departDate').value = tomorrow.toISOString().split('T')[0];
     searchFlight();
 }
 
-// ========== 6. LIVE TRACKER ==========
+// ========== 9. LIVE TRACKER ==========
 async function trackFlight(btn) {
     const flightNo = document.getElementById('flightNoInput').value.trim().toUpperCase();
     if (!flightNo) {
         alert("Enter flight number (e.g., QR645, BA117)");
         return;
     }
-
-    const originalText = btn.innerText;
-    btn.innerText = "🛰️ Opening tracker...";
-    btn.disabled = true;
-
     window.open(`https://flightaware.com/live/flight/${flightNo}`, '_blank');
-    
     document.getElementById('trackerResult').innerHTML = `
         <div class="bg-green-50 border border-green-200 rounded-2xl p-4 text-left fade-in mt-4">
-            <div class="flex items-center gap-2">
-                <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                <span class="font-bold text-green-700">Tracking ${flightNo}</span>
-            </div>
-            <p class="text-sm text-gray-600 mt-2">✅ FlightAware opened with real-time position and status.</p>
+            <p class="font-bold text-green-700">Tracking ${flightNo}</p>
+            <p class="text-sm text-gray-600">✅ FlightAware opened with real-time position.</p>
         </div>
     `;
-    
-    btn.innerText = originalText;
-    btn.disabled = false;
 }
 
-// ========== 7. LAYOVER INTEL ==========
+// ========== 10. LAYOVER INTEL ==========
 async function getLayoverIntel(btn) {
     const airport = document.getElementById('airportInput').value.trim().toUpperCase();
-    if (!airport) {
-        alert("Please enter an airport code (e.g., DXB, LHR, BKK)");
-        return;
-    }
+    if (!airport) return;
     
-    const originalText = btn.innerText;
     btn.innerText = "🔍 Scanning...";
-    
     await new Promise(r => setTimeout(r, 500));
     
     const intel = airportIntel[airport] || {
-        tip: `Standard transit at ${airport}. Allow 2-3 hours for connections.`,
-        bestLounge: "Check airport website for lounge access",
+        tip: `Standard transit at ${airport}. Allow 2-3 hours.`,
+        bestLounge: "Check airport website",
         wifi: "Free WiFi available"
     };
     
     document.getElementById('layoverResult').innerHTML = `
         <div class="bg-orange-50 border border-orange-200 rounded-2xl p-5 text-left fade-in mt-4">
-            <h3 class="font-bold text-orange-800 text-lg mb-3">📍 ${airport} Airport Intel</h3>
-            <div class="space-y-2 text-sm">
-                <p class="text-orange-700">💡 ${intel.tip}</p>
-                <p class="text-orange-700">🛋️ Lounge: ${intel.bestLounge}</p>
-                <p class="text-orange-700">📶 WiFi: ${intel.wifi}</p>
-            </div>
-            <div class="flex gap-2 mt-4">
-                <button onclick="window.open('https://www.google.com/search?q=${airport}+airport+guide', '_blank')" 
-                        class="flex-1 bg-orange-100 text-orange-700 font-bold py-2 rounded-xl text-sm hover:bg-orange-200 transition">
-                    🔍 Full Guide
-                </button>
-                <button onclick="window.open('https://www.flightradar24.com/airport/${airport}', '_blank')" 
-                        class="flex-1 bg-blue-100 text-blue-700 font-bold py-2 rounded-xl text-sm hover:bg-blue-200 transition">
-                    📡 Live Traffic
-                </button>
-            </div>
+            <h3 class="font-bold text-orange-800 text-lg mb-3">📍 ${airport} Intel</h3>
+            <p class="text-orange-700 text-sm">💡 ${intel.tip}</p>
+            <p class="text-orange-700 text-sm mt-2">🛋️ Lounge: ${intel.bestLounge}</p>
+            <p class="text-orange-700 text-sm">📶 WiFi: ${intel.wifi}</p>
         </div>
     `;
-    
-    btn.innerText = originalText;
+    btn.innerText = "Get Intel";
 }
 
-// ========== 8. INITIALIZATION ==========
+// ========== 11. INITIALIZATION ==========
 window.addEventListener('load', () => {
     const savedFrom = localStorage.getItem('lastSearchFrom');
     const savedTo = localStorage.getItem('lastSearchTo');
+    const savedDate = localStorage.getItem('lastDepartDate');
     
-    if (savedFrom && savedTo) {
-        document.getElementById('fromInput').value = savedFrom;
-        document.getElementById('destInput').value = savedTo;
+    if (savedFrom) document.getElementById('fromInput').value = savedFrom;
+    if (savedTo) document.getElementById('destInput').value = savedTo;
+    if (savedDate) document.getElementById('departDate').value = savedDate;
+    
+    // Set default date to tomorrow if not set
+    if (!savedDate) {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        document.getElementById('departDate').value = tomorrow.toISOString().split('T')[0];
     }
     
     const hour = new Date().getHours();
@@ -276,26 +329,18 @@ window.addEventListener('load', () => {
     const greetingEl = document.getElementById('greetingMsg');
     if (greetingEl) greetingEl.innerHTML = `${greeting}, Captain ✈️`;
     
-    // Test API connection on load
-    fetch('/api/health')
-        .then(res => res.json())
-        .then(data => console.log("✅ API connected:", data))
-        .catch(err => console.error("❌ API connection failed:", err));
+    console.log("✅ FlightPulse ready with SerpApi!");
 });
 
-// ========== 9. CSS STYLES ==========
+// CSS
 if (!document.querySelector('#flightpulse-styles')) {
     const style = document.createElement('style');
     style.id = 'flightpulse-styles';
     style.textContent = `
         .loader { width: 28px; height: 28px; border: 3px solid #e2e8f0; border-top-color: #2563EB; border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .animate-pulse { animation: pulse 1.5s ease-in-out infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         .fade-in { opacity: 0; animation: fadeIn 0.4s ease forwards; }
         @keyframes fadeIn { to { opacity: 1; } }
     `;
     document.head.appendChild(style);
 }
-
-console.log("✅ FlightPulse ready - API at /api/flights");
