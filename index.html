@@ -7,9 +7,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2563EB">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="style.css">
     <style>
-        /* Additional custom styles */
         .loader {
             width: 28px;
             height: 28px;
@@ -29,15 +27,33 @@
         @keyframes fadeIn {
             to { opacity: 1; }
         }
-        .animate-pulse {
-            animation: pulse 1.5s ease-in-out infinite;
+        .dropdown-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+            max-height: 250px;
+            overflow-y: auto;
+            z-index: 50;
+            margin-top: 4px;
         }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+        .suggestion-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.2s;
         }
-        input, select, button {
-            -webkit-tap-highlight-color: transparent;
+        .suggestion-item:hover {
+            background: #f3f4f6;
+        }
+        .suggestion-item:active {
+            background: #e5e7eb;
+        }
+        .pb-safe {
+            padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
         }
     </style>
 </head>
@@ -67,40 +83,43 @@
                     <span class="bg-blue-50 text-blue-600 text-[10px] font-bold px-3 py-1.5 rounded-full">LIVE PRICES</span>
                 </div>
                 
-                <!-- Airport Inputs -->
+                <!-- From Airport -->
                 <div class="relative mb-4">
                     <div class="absolute left-4 top-4 text-gray-400 text-lg">🛫</div>
-                    <input type="text" id="fromInput" placeholder="From (e.g. LHR, JFK, DXB)" class="w-full p-4 pl-12 border-2 border-gray-100 rounded-2xl bg-gray-50 focus:bg-white focus:border-blue-500 outline-none transition-all font-bold text-gray-700 text-lg uppercase">
+                    <input type="text" id="fromInput" placeholder="From (e.g., London, JFK, DXB)" class="w-full p-4 pl-12 border-2 border-gray-100 rounded-2xl bg-gray-50 focus:bg-white focus:border-blue-500 outline-none transition-all font-bold text-gray-700" autocomplete="off">
+                    <div id="fromSuggestions" class="dropdown-suggestions hidden"></div>
                 </div>
                 
+                <!-- To Airport -->
                 <div class="relative mb-4">
                     <div class="absolute left-4 top-4 text-gray-400 text-lg">🛬</div>
-                    <input type="text" id="destInput" placeholder="To (e.g. BKK, SIN, LAX)" class="w-full p-4 pl-12 border-2 border-gray-100 rounded-2xl bg-gray-50 focus:bg-white focus:border-blue-500 outline-none transition-all font-bold text-gray-700 text-lg uppercase">
+                    <input type="text" id="destInput" placeholder="To (e.g., Bangkok, Singapore, NYC)" class="w-full p-4 pl-12 border-2 border-gray-100 rounded-2xl bg-gray-50 focus:bg-white focus:border-blue-500 outline-none transition-all font-bold text-gray-700" autocomplete="off">
+                    <div id="destSuggestions" class="dropdown-suggestions hidden"></div>
                 </div>
                 
                 <!-- Trip Type & Passenger Controls -->
                 <div class="mb-4">
                     <div class="flex gap-2 mb-3">
-                        <button id="oneWayBtn" onclick="setTripType('oneway')" class="flex-1 py-2 rounded-lg font-semibold bg-blue-600 text-white transition">One Way</button>
-                        <button id="roundTripBtn" onclick="setTripType('roundtrip')" class="flex-1 py-2 rounded-lg font-semibold bg-gray-100 text-gray-600 transition">Round Trip</button>
+                        <button type="button" id="oneWayBtn" onclick="setTripType('oneway')" class="flex-1 py-2 rounded-lg font-semibold bg-blue-600 text-white transition">One Way</button>
+                        <button type="button" id="roundTripBtn" onclick="setTripType('roundtrip')" class="flex-1 py-2 rounded-lg font-semibold bg-gray-100 text-gray-600 transition">Round Trip</button>
                     </div>
                     
                     <div class="flex gap-3 mb-3">
                         <div class="flex-1">
                             <label class="text-xs text-gray-500 font-medium">Adults</label>
-                            <select id="adultsCount" class="w-full p-2 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white">
-                                <option>1</option><option>2</option><option>3</option><option>4</option>
+                            <select id="adultsCount" class="w-full p-2 border border-gray-200 rounded-lg bg-gray-50">
+                                <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
                             </select>
                         </div>
                         <div class="flex-1">
                             <label class="text-xs text-gray-500 font-medium">Children (2-11)</label>
-                            <select id="childrenCount" class="w-full p-2 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white">
+                            <select id="childrenCount" class="w-full p-2 border border-gray-200 rounded-lg bg-gray-50">
                                 <option>0</option><option>1</option><option>2</option><option>3</option>
                             </select>
                         </div>
                         <div class="flex-1">
                             <label class="text-xs text-gray-500 font-medium">Cabin</label>
-                            <select id="cabinClass" class="w-full p-2 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white">
+                            <select id="cabinClass" class="w-full p-2 border border-gray-200 rounded-lg bg-gray-50">
                                 <option>ECONOMY</option>
                                 <option>PREMIUM_ECONOMY</option>
                                 <option>BUSINESS</option>
@@ -110,11 +129,11 @@
                     </div>
                     
                     <label class="text-xs text-gray-500 font-medium">Departure Date</label>
-                    <input type="date" id="departDate" class="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white mb-2">
+                    <input type="date" id="departDate" class="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 mb-2">
                     
                     <div id="returnDateRow" class="hidden">
                         <label class="text-xs text-gray-500 font-medium">Return Date</label>
-                        <input type="date" id="returnDate" class="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white">
+                        <input type="date" id="returnDate" class="w-full p-3 border border-gray-200 rounded-xl bg-gray-50">
                     </div>
                 </div>
                 
@@ -128,12 +147,12 @@
             </div>
 
             <!-- Layover Insight -->
-            <div id="layoverInfo" class="hidden bg-orange-50 border-2 border-orange-100 p-5 rounded-[24px] mb-6 shadow-sm">
+            <div id="layoverInfo" class="hidden bg-orange-50 border-2 border-orange-100 p-5 rounded-[24px] mb-6">
                 <h3 class="font-bold text-orange-800 flex items-center gap-2 mb-2 text-lg">💡 Airport Intel</h3>
                 <p id="infoText" class="text-sm text-orange-700 font-medium"></p>
             </div>
 
-            <!-- Flight Results Container -->
+            <!-- Flight Results -->
             <div id="flightResults" class="space-y-4"></div>
 
             <!-- Trending Destinations -->
@@ -141,24 +160,24 @@
                 <h3 class="font-bold text-gray-800 mb-4 px-2 text-lg">🔥 Popular Routes</h3>
                 <div class="grid grid-cols-2 gap-4">
                     <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 active:scale-95 transition cursor-pointer" onclick="fillSearch('LHR', 'BKK')">
-                        <div class="text-2xl mb-2">🇬🇧</div>
+                        <div class="text-2xl mb-2">🇬🇧➡️🇹🇭</div>
                         <p class="font-bold text-gray-800">London → Bangkok</p>
-                        <p class="text-xs text-gray-400 font-bold mt-1">From $650</p>
+                        <p class="text-xs text-gray-400">From $650</p>
                     </div>
                     <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 active:scale-95 transition cursor-pointer" onclick="fillSearch('JFK', 'LAX')">
-                        <div class="text-2xl mb-2">🗽</div>
+                        <div class="text-2xl mb-2">🗽➡️🌴</div>
                         <p class="font-bold text-gray-800">New York → LA</p>
-                        <p class="text-xs text-gray-400 font-bold mt-1">From $129</p>
+                        <p class="text-xs text-gray-400">From $129</p>
                     </div>
                     <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 active:scale-95 transition cursor-pointer" onclick="fillSearch('DXB', 'SIN')">
-                        <div class="text-2xl mb-2">🏙️</div>
+                        <div class="text-2xl mb-2">🏙️➡️🦁</div>
                         <p class="font-bold text-gray-800">Dubai → Singapore</p>
-                        <p class="text-xs text-gray-400 font-bold mt-1">From $320</p>
+                        <p class="text-xs text-gray-400">From $320</p>
                     </div>
                     <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 active:scale-95 transition cursor-pointer" onclick="fillSearch('KTM', 'DXB')">
-                        <div class="text-2xl mb-2">🏔️</div>
+                        <div class="text-2xl mb-2">🏔️➡️🏙️</div>
                         <p class="font-bold text-gray-800">Kathmandu → Dubai</p>
-                        <p class="text-xs text-gray-400 font-bold mt-1">From $359</p>
+                        <p class="text-xs text-gray-400">From $359</p>
                     </div>
                 </div>
             </div>
@@ -169,7 +188,7 @@
             <div class="bg-white rounded-[32px] shadow-xl p-6 text-center">
                 <div class="text-6xl mb-4">📡</div>
                 <h2 class="text-2xl font-bold text-gray-800 mb-2">Live Radar</h2>
-                <p class="text-gray-500 mb-6 font-medium">Track any flight in real-time.</p>
+                <p class="text-gray-500 mb-6">Track any flight in real-time.</p>
                 <input type="text" id="flightNoInput" placeholder="Flight No (e.g. QR645, BA117)" class="w-full p-4 border-2 border-gray-100 rounded-2xl bg-gray-50 mb-4 text-center font-bold text-xl uppercase">
                 <button onclick="trackFlight(this)" class="w-full bg-blue-600 text-white font-bold text-lg py-4 rounded-2xl shadow-lg shadow-blue-600/30 active:scale-95 transition-all">Locate Flight</button>
                 <div id="trackerResult" class="mt-6"></div>
@@ -181,7 +200,7 @@
             <div class="bg-white rounded-[32px] shadow-xl p-6 text-center">
                 <div class="text-6xl mb-4">☕</div>
                 <h2 class="text-2xl font-bold text-gray-800 mb-2">Airport Intel</h2>
-                <p class="text-gray-500 mb-6 font-medium">Security waits, lounges & tips.</p>
+                <p class="text-gray-500 mb-6">Security waits, lounges & tips.</p>
                 <input type="text" id="airportInput" placeholder="Airport Code (e.g. LHR, DXB, BKK)" class="w-full p-4 border-2 border-gray-100 rounded-2xl bg-gray-50 mb-4 text-center font-bold text-xl uppercase">
                 <button onclick="getLayoverIntel(this)" class="w-full bg-orange-500 text-white font-bold text-lg py-4 rounded-2xl shadow-lg shadow-orange-500/30 active:scale-95 transition-all">Get Intel</button>
                 <div id="layoverResult" class="mt-6"></div>
