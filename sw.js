@@ -1,4 +1,4 @@
-const CACHE_NAME = 'flightpulse-v5';
+const CACHE_NAME = 'flightpulse-v6';
 const urlsToCache = [
   '/',
   '/index.html',
