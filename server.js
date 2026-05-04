@@ -1,17 +1,16 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const https = require('https');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// YOUR SERPAPI KEY
+// YOUR SERPAPI KEY (Already working)
 const SERPAPI_KEY = 'c017ced4ba739491ba8c0d57bd70625f3cd6188eb7db282e742c2a690031dc35';
 
-// ========== PROXY ENDPOINT FOR SERPAPI ==========
+// ========== FLIGHT SEARCH ENDPOINT (Already Working) ==========
 app.get('/api/search-flights', async (req, res) => {
     const { from, to, departDate, returnDate, adults, children, cabinClass, tripType } = req.query;
     
@@ -21,7 +20,6 @@ app.get('/api/search-flights', async (req, res) => {
         return res.status(400).json({ error: 'Missing required parameters' });
     }
     
-    // Map cabin class to SerpApi travel_class
     const classMap = {
         'ECONOMY': '1',
         'PREMIUM_ECONOMY': '2', 
@@ -29,7 +27,6 @@ app.get('/api/search-flights', async (req, res) => {
         'FIRST': '4'
     };
     
-    // Build SerpApi URL
     let apiUrl = `https://serpapi.com/search.json?engine=google_flights&departure_id=${from}&arrival_id=${to}&outbound_date=${departDate}&currency=USD&hl=en&gl=us&adults=${adults}&travel_class=${classMap[cabinClass] || '1'}&api_key=${SERPAPI_KEY}`;
     
     if (children && parseInt(children) > 0) {
@@ -42,18 +39,14 @@ app.get('/api/search-flights', async (req, res) => {
     
     apiUrl += `&deep_search=true`;
     
-    console.log("Calling SerpApi...");
-    
     try {
         const response = await fetch(apiUrl);
         const data = await response.json();
         
         if (data.error) {
-            console.error("SerpApi error:", data.error);
             return res.status(400).json({ error: data.error });
         }
         
-        // Extract and format flights
         let flights = [];
         if (data.best_flights && data.best_flights.length > 0) {
             flights = data.best_flights;
@@ -62,7 +55,6 @@ app.get('/api/search-flights', async (req, res) => {
             flights = flights.concat(data.other_flights);
         }
         
-        // Sort by price
         flights.sort((a, b) => (a.price || a.total_price || 0) - (b.price || b.total_price || 0));
         
         res.json({
@@ -78,12 +70,77 @@ app.get('/api/search-flights', async (req, res) => {
     }
 });
 
-// Health check
+// ========== AIRPORT AUTOCOMPLETE ENDPOINT (NEW - USES SERPAPI) ==========
+app.get('/api/airports', async (req, res) => {
+    const { query } = req.query;
+    
+    console.log(`🔍 Airport search: ${query}`);
+    
+    if (!query || query.length < 2) {
+        return res.json({ airports: [] });
+    }
+    
+    try {
+        // Use SerpApi's Google Flights Autocomplete
+        const url = `https://serpapi.com/search.json?engine=google_flights_autocomplete&q=${encodeURIComponent(query)}&gl=us&hl=en&api_key=${SERPAPI_KEY}`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        const airports = [];
+        
+        if (data.suggestions && data.suggestions.length > 0) {
+            data.suggestions.forEach(suggestion => {
+                // Add city suggestions as airports (users can type city names)
+                if (suggestion.type === 'city') {
+                    airports.push({
+                        code: suggestion.name.replace(/\s/g, '').toUpperCase().substring(0, 3),
+                        name: suggestion.name,
+                        city: suggestion.name,
+                        country: suggestion.country_name || '',
+                        type: 'city'
+                    });
+                }
+                
+                // Add specific airport suggestions
+                if (suggestion.airports && suggestion.airports.length > 0) {
+                    suggestion.airports.forEach(airport => {
+                        airports.push({
+                            code: airport.id,
+                            name: airport.name,
+                            city: suggestion.name,
+                            country: suggestion.country_name || '',
+                            type: 'airport'
+                        });
+                    });
+                }
+            });
+        }
+        
+        // Remove duplicates based on code
+        const uniqueAirports = [];
+        const seenCodes = new Set();
+        for (const airport of airports) {
+            if (!seenCodes.has(airport.code) && airport.code) {
+                seenCodes.add(airport.code);
+                uniqueAirports.push(airport);
+            }
+        }
+        
+        res.json({ airports: uniqueAirports.slice(0, 8) });
+        
+    } catch (error) {
+        console.error("Airport autocomplete error:", error);
+        res.json({ airports: [] });
+    }
+});
+
+// ========== HEALTH CHECK ==========
 app.get('/api/health', (req, res) => {
     res.json({ status: 'alive', timestamp: new Date().toISOString() });
 });
 
-// Serve frontend
+// ========== SERVE FRONTEND ==========
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
@@ -91,5 +148,6 @@ app.get('*', (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`✅ FlightPulse running on port ${PORT}`);
-    console.log(`🔌 API: /api/search-flights?from=KTM&to=DXB&departDate=2026-05-14`);
+    console.log(`🔌 Flight API: /api/search-flights?from=KTM&to=DXB`);
+    console.log(`🔌 Airport API: /api/airports?query=london`);
 });
