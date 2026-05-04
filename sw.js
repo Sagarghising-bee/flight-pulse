@@ -1,4 +1,4 @@
-const CACHE_NAME = 'flightpulse-v4'; // Bumped to v4 to force update!
+const CACHE_NAME = 'flightpulse-v5';
 const urlsToCache = [
   '/',
   '/index.html',
