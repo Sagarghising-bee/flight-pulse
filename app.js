@@ -64,7 +64,7 @@ function switchTab(viewId, btn) {
     }
 }
 
-// ========== 5. MAIN SEARCH FUNCTION - CALLS BACKEND ==========
+// ========== 5. MAIN SEARCH FUNCTION ==========
 async function searchFlight() {
     const from = document.getElementById('fromInput').value.trim().toUpperCase();
     const to = document.getElementById('destInput').value.trim().toUpperCase();
@@ -84,16 +84,13 @@ async function searchFlight() {
         return;
     }
 
-    // Save to localStorage
     localStorage.setItem('lastSearchFrom', from);
     localStorage.setItem('lastSearchTo', to);
     localStorage.setItem('lastDepartDate', departDate);
 
-    // Hide trending section
     const trending = document.getElementById('trendingSection');
     if (trending) trending.style.display = 'none';
 
-    // Show airport intel
     const airport = airportIntel[to];
     const infoBox = document.getElementById('layoverInfo');
     const infoText = document.getElementById('infoText');
@@ -108,7 +105,6 @@ async function searchFlight() {
         infoBox.classList.remove('hidden');
     }
     
-    // Show loading state
     const container = document.getElementById('flightResults');
     container.innerHTML = `
         <div class="text-center py-12">
@@ -119,7 +115,6 @@ async function searchFlight() {
     `;
     
     try {
-        // Build URL to backend
         let apiUrl = `/api/search-flights?from=${from}&to=${to}&departDate=${departDate}&adults=${adults}&children=${children}&cabinClass=${cabinClass}&tripType=${currentTripType}`;
         
         if (currentTripType === 'roundtrip' && returnDate) {
@@ -164,7 +159,6 @@ function renderFlightResults(flights, from, to, googleFlightsUrl) {
     const container = document.getElementById('flightResults');
     container.innerHTML = '';
     
-    // Header
     const header = document.createElement('div');
     header.className = 'text-right text-[10px] text-gray-400 mb-2';
     header.innerHTML = `🟢 Live from Google Flights • ${flights.length} options found • Sorted by price`;
@@ -312,7 +306,64 @@ async function getLayoverIntel(btn) {
     btn.innerText = originalText;
 }
 
-// ========== 10. INITIALIZATION ==========
+// ========== 10. AIRPORT AUTOCOMPLETE ==========
+let searchTimeout;
+
+function setupAirportSearch(inputId, suggestionsId) {
+    const input = document.getElementById(inputId);
+    const suggestionsDiv = document.getElementById(suggestionsId);
+    
+    if (!input) return;
+    
+    input.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        const query = this.value.trim();
+        
+        if (query.length < 2) {
+            suggestionsDiv.classList.add('hidden');
+            return;
+        }
+        
+        suggestionsDiv.innerHTML = '<div class="suggestion-item text-gray-400">✈️ Searching airports...</div>';
+        suggestionsDiv.classList.remove('hidden');
+        
+        searchTimeout = setTimeout(async () => {
+            try {
+                const response = await fetch(`/api/airports?query=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                
+                if (data.airports && data.airports.length > 0) {
+                    suggestionsDiv.innerHTML = data.airports.map(airport => `
+                        <div class="suggestion-item" onclick="selectAirport('${inputId}', '${airport.code}', '${airport.name}', '${airport.city}')">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <span class="font-bold text-gray-800">${airport.code}</span>
+                                    <span class="text-sm text-gray-600 ml-2">${airport.name}</span>
+                                </div>
+                                <span class="text-xs text-blue-600">${airport.city}</span>
+                            </div>
+                            ${airport.country ? `<div class="text-xs text-gray-400 mt-1">${airport.country}</div>` : ''}
+                        </div>
+                    `).join('');
+                } else {
+                    suggestionsDiv.innerHTML = '<div class="suggestion-item text-gray-400">📍 No airports found. Try typing airport code (e.g., LHR)</div>';
+                }
+            } catch (error) {
+                console.error("Airport search error:", error);
+                suggestionsDiv.innerHTML = '<div class="suggestion-item text-red-500">⚠️ Unable to load suggestions</div>';
+            }
+        }, 300);
+    });
+}
+
+function selectAirport(inputId, code, name, city) {
+    const input = document.getElementById(inputId);
+    input.value = code;
+    const suggestionsId = inputId === 'fromInput' ? 'fromSuggestions' : 'destSuggestions';
+    document.getElementById(suggestionsId).classList.add('hidden');
+}
+
+// ========== 11. INITIALIZATION ==========
 window.addEventListener('load', () => {
     const savedFrom = localStorage.getItem('lastSearchFrom');
     const savedTo = localStorage.getItem('lastSearchTo');
@@ -333,6 +384,10 @@ window.addEventListener('load', () => {
     const greetingEl = document.getElementById('greetingMsg');
     if (greetingEl) greetingEl.innerHTML = `${greeting}, Captain ✈️`;
     
+    // Initialize airport autocomplete
+    setupAirportSearch('fromInput', 'fromSuggestions');
+    setupAirportSearch('destInput', 'destSuggestions');
+    
     // Test API connection
     fetch('/api/health')
         .then(res => res.json())
@@ -341,38 +396,3 @@ window.addEventListener('load', () => {
     
     console.log("✅ FlightPulse ready!");
 });
-
-// ========== 11. CSS STYLES ==========
-if (!document.querySelector('#flightpulse-styles')) {
-    const style = document.createElement('style');
-    style.id = 'flightpulse-styles';
-    style.textContent = `
-        .loader {
-            width: 28px;
-            height: 28px;
-            border: 3px solid #e2e8f0;
-            border-top-color: #2563EB;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            display: inline-block;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        .animate-pulse {
-            animation: pulse 1.5s ease-in-out infinite;
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-        .fade-in {
-            opacity: 0;
-            animation: fadeIn 0.4s ease forwards;
-        }
-        @keyframes fadeIn {
-            to { opacity: 1; }
-        }
-    `;
-    document.head.appendChild(style);
-        }
