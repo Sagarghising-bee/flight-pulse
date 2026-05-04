@@ -172,7 +172,7 @@ async function searchFlight() {
     }
 }
 
-// ========== 6. RENDER FLIGHT RESULTS (WITH CARBON CALCULATOR) ==========
+// ========== 6. RENDER FLIGHT RESULTS (UPGRADED WITH CARBON CALC) ==========
 function renderFlightResults(flights, from, to, googleFlightsUrl) {
     const container = document.getElementById('flightResults');
     container.innerHTML = '';
@@ -191,54 +191,56 @@ function renderFlightResults(flights, from, to, googleFlightsUrl) {
         const flightNumber = firstLeg.flight_number || "";
         const depTime = firstLeg.departure_airport?.time?.split(' ')[1] || firstLeg.departure_time || "00:00";
         const arrTime = lastLeg.arrival_airport?.time?.split(' ')[1] || lastLeg.arrival_time || "00:00";
-        const durationMins = flight.total_duration || 0;
-        const durationText = durationMins ? `${Math.floor(durationMins / 60)}h ${durationMins % 60}m` : "N/A";
+        const duration = flight.total_duration ? `${Math.floor(flight.total_duration / 60)}h ${flight.total_duration % 60}m` : "N/A";
         const stops = flight.flights ? flight.flights.length - 1 : 0;
         const price = flight.price || flight.total_price || 0;
         
-        // 🌱 THE CARBON CALCULATOR LOGIC
-        // Formula: ~90kg of CO2 per hour of flight per passenger
-        const co2Estimate = Math.round((durationMins / 60) * 90);
-        let ecoBadge = '';
-        if (co2Estimate > 0) {
-            let ecoColor = 'text-green-700 bg-green-100'; // Default Green (Low footprint)
-            if (co2Estimate > 600) ecoColor = 'text-red-700 bg-red-100'; // Red (High footprint)
-            else if (co2Estimate > 300) ecoColor = 'text-orange-700 bg-orange-100'; // Orange (Moderate)
-            
-            ecoBadge = `<span class="text-[10px] font-bold ${ecoColor} px-2 py-1 rounded-lg ml-2 border border-white">🌱 ${co2Estimate}kg CO₂</span>`;
-        }
-        
         let bookingUrl = googleFlightsUrl || `https://www.google.com/travel/flights?q=flights+from+${from}+to+${to}`;
         
+        // 👑 NEW: Call our proprietary Carbon Calculator
+        const ecoData = getCarbonFootprint(flight.total_duration, stops);
+        
         const card = document.createElement('div');
-        card.className = `bg-white rounded-2xl shadow-sm border ${isCheapest ? 'border-blue-300 ring-2 ring-blue-50' : 'border-gray-100'} p-5 mb-4 fade-in hover:shadow-md transition-all`;
+        card.className = `bg-white rounded-2xl shadow-sm border ${isCheapest ? 'border-green-300 ring-2 ring-green-200' : 'border-gray-100'} p-5 mb-4 fade-in hover:shadow-md transition-all`;
         card.style.animationDelay = `${idx * 0.05}s`;
         
         card.innerHTML = `
             <div class="flex justify-between items-start mb-3">
-                <div class="flex items-center flex-wrap gap-y-2">
-                    <span class="text-xs font-bold bg-blue-50 text-blue-700 px-3 py-1 rounded-lg border border-blue-100">${airline}</span>
-                    ${ecoBadge}
-                    ${isCheapest ? '<span class="text-[10px] font-bold bg-gray-900 text-white px-2 py-1 rounded-lg ml-2">🏆 BEST DEAL</span>' : ''}
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-xs font-bold bg-blue-50 text-blue-700 px-3 py-1 rounded-lg">${airline}</span>
+                    ${flightNumber ? `<span class="text-[10px] text-gray-400">${flightNumber}</span>` : ''}
+                    ${isCheapest ? '<span class="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded-lg">🏆 CHEAPEST</span>' : ''}
+                    <span class="text-[10px] font-bold px-2 py-1 rounded-lg border ${ecoData.classes}">${ecoData.text}</span>
                 </div>
-                <div class="text-right">
+                <div class="text-right ml-2 shrink-0">
                     <span class="text-2xl font-bold text-gray-900">$${price}</span>
-                    <span class="text-[10px] font-bold text-gray-400 block uppercase tracking-wider mt-0.5">${stops === 0 ? 'Direct' : stops + ' stop' + (stops > 1 ? 's' : '')}</span>
+                    <span class="text-[10px] text-gray-400 block">${stops === 0 ? 'Direct' : stops + ' stop' + (stops > 1 ? 's' : '')}</span>
                 </div>
             </div>
             
-            <div class="flex justify-between items-center mb-5 mt-4">
+            <div class="flex justify-between items-center mb-4 mt-4">
                 <div class="text-center">
                     <p class="text-xl font-bold text-gray-800">${depTime}</p>
-                    <p class="text-gray-400 text-[10px] font-bold tracking-wider">${from}</p>
+                    <p class="text-gray-400 text-[10px] font-bold">${from}</p>
                 </div>
                 <div class="flex-1 px-3 text-center">
-                    <div class="text-gray-400 text-xs font-bold mb-1">✈️ ${durationText}</div>
-                    <div class="w-full h-px bg-gray-200"></div>
+                    <div class="text-gray-400 text-xs">✈️ ${duration}</div>
+                    <div class="w-full h-px bg-gray-200 my-1"></div>
                 </div>
                 <div class="text-center">
-                    <p class="text-xl font-bold text-gray-
-                
+                    <p class="text-xl font-bold text-gray-800">${arrTime}</p>
+                    <p class="text-gray-400 text-[10px] font-bold">${to}</p>
+                </div>
+            </div>
+            
+            <button onclick="window.open('${bookingUrl}', '_blank')" 
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition text-sm flex items-center justify-center gap-2">
+                ✈️ Book on Google Flights — $${price}
+            </button>
+        `;
+        container.appendChild(card);
+    });
+}
 
 // ========== 7. FILL SEARCH FROM TRENDING ==========
 function fillSearch(from, to) {
