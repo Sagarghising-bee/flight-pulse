@@ -182,7 +182,7 @@ function getCarbonFootprint(durationMins, stops) {
     }
 }
 
-// ========== 7. RENDER FLIGHT RESULTS (UPGRADED WITH LUGGAGE) ==========
+// ========== 7. RENDER FLIGHT RESULTS (UPGRADED WITH LUGGAGE & SHARE) ==========
 function renderFlightResults(flights, from, to, googleFlightsUrl) {
     const container = document.getElementById('flightResults');
     container.innerHTML = '';
@@ -210,7 +210,7 @@ function renderFlightResults(flights, from, to, googleFlightsUrl) {
         // Call the Eco Calculator directly from inside this file
         const ecoData = getCarbonFootprint(flight.total_duration, stops);
         
-                // 👑 NEW: Smart Luggage Scanner with KGs
+        // 👑 NEW: Smart Luggage Scanner with KGs
         let luggageInfo = "🧳 7kg Cabin Bag"; // International standard fallback
         if (flight.extensions && flight.extensions.length > 0) {
             const bagInfo = flight.extensions.find(ext => ext.toLowerCase().includes('bag'));
@@ -228,7 +228,6 @@ function renderFlightResults(flights, from, to, googleFlightsUrl) {
             }
         }
 
-        
         const card = document.createElement('div');
         card.className = `bg-white rounded-2xl shadow-sm border ${isCheapest ? 'border-green-300 ring-2 ring-green-200' : 'border-gray-100'} p-5 mb-4 fade-in hover:shadow-md transition-all`;
         card.style.animationDelay = `${idx * 0.05}s`;
@@ -240,12 +239,16 @@ function renderFlightResults(flights, from, to, googleFlightsUrl) {
                     ${flightNumber ? `<span class="text-[10px] text-gray-400">${flightNumber}</span>` : ''}
                     ${isCheapest ? '<span class="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded-lg">🏆 CHEAPEST</span>' : ''}
                     <span class="text-[10px] font-bold px-2 py-1 rounded-lg border ${ecoData.classes}">${ecoData.text}</span>
-                    
                     <span class="text-[10px] font-bold px-2 py-1 rounded-lg border bg-purple-50 text-purple-700 border-purple-200">${luggageInfo}</span>
                 </div>
+                
                 <div class="text-right ml-2 shrink-0">
                     <span class="text-2xl font-bold text-gray-900">$${price}</span>
                     <span class="text-[10px] text-gray-400 block">${stops === 0 ? 'Direct' : stops + ' stop' + (stops > 1 ? 's' : '')}</span>
+                    
+                    <button onclick="shareFlight('${airline}', '${price}', '${from}', '${to}')" class="text-blue-500 hover:text-blue-700 text-xs font-bold flex items-center justify-end w-full gap-1 mt-2">
+                        📤 Share
+                    </button>
                 </div>
             </div>
             
