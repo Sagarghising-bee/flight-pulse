@@ -1,11 +1,10 @@
-const CACHE_NAME = 'flightpulse-v3';
+const CACHE_NAME = 'flightpulse-v4'; // Bumped to v4 to force update!
 const urlsToCache = [
   '/',
   '/index.html',
   '/app.js',
   '/style.css',
-  'https://cdn.tailwindcss.com',
-  'https://api.allorigins.win/raw?url=' // CORS proxy cache hint
+  'https://cdn.tailwindcss.com'
 ];
 
 self.addEventListener('install', event => {
@@ -16,10 +15,9 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('fetch', event => {
-  // Don't cache API calls (let them go online)
-  if (event.request.url.includes('aviationstack') || event.request.url.includes('allorigins')) {
-    event.respondWith(fetch(event.request).catch(() => caches.match('/index.html')));
-    return;
+  // CRITICAL FIX: Always bypass the Service Worker for backend API calls
+  if (event.request.url.includes('/api/')) {
+    return; // Let the browser handle the network request naturally
   }
   
   event.respondWith(
