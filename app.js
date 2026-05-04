@@ -35,7 +35,6 @@ function setTripType(type) {
         roundTripBtn.classList.remove('bg-blue-600', 'text-white');
         roundTripBtn.classList.add('bg-gray-100', 'text-gray-600');
         if (returnRow) returnRow.classList.add('hidden');
-        // IMPORTANT: Clear return date value when switching to one-way
         if (document.getElementById('returnDate')) {
             document.getElementById('returnDate').value = '';
         }
@@ -45,7 +44,6 @@ function setTripType(type) {
         oneWayBtn.classList.remove('bg-blue-600', 'text-white');
         oneWayBtn.classList.add('bg-gray-100', 'text-gray-600');
         if (returnRow) returnRow.classList.remove('hidden');
-        // Set default return date (7 days after departure)
         const departDate = document.getElementById('departDate').value;
         if (departDate && !document.getElementById('returnDate').value) {
             const returnDateObj = new Date(departDate);
@@ -103,7 +101,6 @@ async function searchFlight() {
     if (currentTripType === 'roundtrip') {
         console.log(`  Return: ${returnDate}`);
     }
-    console.log(`  Adults: ${adults}, Children: ${children}, Cabin: ${cabinClass}`);
 
     localStorage.setItem('lastSearchFrom', from);
     localStorage.setItem('lastSearchTo', to);
@@ -131,15 +128,13 @@ async function searchFlight() {
         <div class="text-center py-12">
             <div class="loader mx-auto"></div>
             <p class="mt-4 text-gray-500 font-medium">Searching real flight prices...</p>
-            <p class="text-xs text-gray-400 mt-2">${from} → ${to} • ${departDate} • ${adults} adult${adults > 1 ? 's' : ''}</p>
+            <p class="text-xs text-gray-400 mt-2">${from} → ${to} • ${departDate}</p>
         </div>
     `;
     
     try {
-        // Build URL - ONLY include returnDate for round trips
         let apiUrl = `/api/search-flights?from=${from}&to=${to}&departDate=${departDate}&adults=${adults}&children=${children}&cabinClass=${cabinClass}&tripType=${currentTripType}`;
         
-        // CRITICAL: Only add returnDate if it's a round trip AND returnDate has a value
         if (currentTripType === 'roundtrip' && returnDate && returnDate.length > 0) {
             apiUrl += `&returnDate=${returnDate}`;
         }
@@ -254,7 +249,6 @@ function fillSearch(from, to) {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 30);
     document.getElementById('departDate').value = tomorrow.toISOString().split('T')[0];
-    // Ensure trip type is one-way when clicking trending
     if (currentTripType !== 'oneway') {
         setTripType('oneway');
     }
@@ -282,7 +276,7 @@ async function trackFlight(btn) {
                 <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
                 <span class="font-bold text-green-700 text-sm">Tracking ${flightNo}</span>
             </div>
-            <p class="text-sm text-gray-600 mt-2">✅ FlightAware opened with real-time position, maps, and status.</p>
+            <p class="text-sm text-gray-600 mt-2">✅ FlightAware opened with real-time position.</p>
         </div>
     `;
     
@@ -294,7 +288,7 @@ async function trackFlight(btn) {
 async function getLayoverIntel(btn) {
     const airport = document.getElementById('airportInput').value.trim().toUpperCase();
     if (!airport) {
-        alert("Please enter an airport code (e.g., DXB, LHR, BKK)");
+        alert("Please enter an airport code");
         return;
     }
     
@@ -304,9 +298,9 @@ async function getLayoverIntel(btn) {
     await new Promise(r => setTimeout(r, 500));
     
     const intel = airportIntel[airport] || {
-        tip: `Standard transit at ${airport}. Allow 2-3 hours for international connections.`,
-        bestLounge: "Check with your airline for lounge access",
-        wifi: "Free WiFi usually available"
+        tip: `Standard transit at ${airport}. Allow 2-3 hours.`,
+        bestLounge: "Check airport website",
+        wifi: "Free WiFi available"
     };
     
     document.getElementById('layoverResult').innerHTML = `
@@ -319,11 +313,11 @@ async function getLayoverIntel(btn) {
             </div>
             <div class="flex gap-2 mt-4">
                 <button onclick="window.open('https://www.google.com/search?q=${airport}+airport+guide', '_blank')" 
-                        class="flex-1 bg-orange-100 text-orange-700 font-bold py-2 rounded-xl text-sm hover:bg-orange-200 transition">
+                        class="flex-1 bg-orange-100 text-orange-700 font-bold py-2 rounded-xl text-sm">
                     🔍 Full Guide
                 </button>
                 <button onclick="window.open('https://www.flightradar24.com/airport/${airport}', '_blank')" 
-                        class="flex-1 bg-blue-100 text-blue-700 font-bold py-2 rounded-xl text-sm hover:bg-blue-200 transition">
+                        class="flex-1 bg-blue-100 text-blue-700 font-bold py-2 rounded-xl text-sm">
                     📡 Live Traffic
                 </button>
             </div>
@@ -351,7 +345,7 @@ function setupAirportSearch(inputId, suggestionsId) {
             return;
         }
         
-        suggestionsDiv.innerHTML = '<div class="suggestion-item text-gray-400">✈️ Searching airports...</div>';
+        suggestionsDiv.innerHTML = '<div class="suggestion-item text-gray-400">✈️ Searching...</div>';
         suggestionsDiv.classList.remove('hidden');
         
         searchTimeout = setTimeout(async () => {
@@ -361,39 +355,32 @@ function setupAirportSearch(inputId, suggestionsId) {
                 
                 if (data.airports && data.airports.length > 0) {
                     suggestionsDiv.innerHTML = data.airports.map(airport => `
-                        <div class="suggestion-item" onclick="selectAirport('${inputId}', '${airport.code}', '${airport.name}', '${airport.city}')">
+                        <div class="suggestion-item" onclick="selectAirport('${inputId}', '${airport.code}', '${airport.name}')">
                             <div class="flex justify-between items-center">
-                                <div>
-                                    <span class="font-bold text-gray-800">${airport.code}</span>
-                                    <span class="text-sm text-gray-600 ml-2">${airport.name}</span>
-                                </div>
-                                <span class="text-xs text-blue-600">${airport.city}</span>
+                                <span class="font-bold text-gray-800">${airport.code}</span>
+                                <span class="text-sm text-gray-600">${airport.name}</span>
                             </div>
-                            ${airport.country ? `<div class="text-xs text-gray-400 mt-1">${airport.country}</div>` : ''}
+                            <div class="text-xs text-gray-400">${airport.city}, ${airport.country}</div>
                         </div>
                     `).join('');
                 } else {
-                    suggestionsDiv.innerHTML = '<div class="suggestion-item text-gray-400">📍 No airports found. Try typing airport code (e.g., LHR)</div>';
+                    suggestionsDiv.innerHTML = '<div class="suggestion-item text-gray-400">No airports found</div>';
                 }
             } catch (error) {
-                console.error("Airport search error:", error);
-                suggestionsDiv.innerHTML = '<div class="suggestion-item text-red-500">⚠️ Unable to load suggestions</div>';
+                suggestionsDiv.innerHTML = '<div class="suggestion-item text-red-500">Error loading</div>';
             }
         }, 300);
     });
 }
 
-function selectAirport(inputId, code, name, city) {
-    const input = document.getElementById(inputId);
-    input.value = code;
+function selectAirport(inputId, code, name) {
+    document.getElementById(inputId).value = code;
     const suggestionsId = inputId === 'fromInput' ? 'fromSuggestions' : 'destSuggestions';
     document.getElementById(suggestionsId).classList.add('hidden');
 }
 
 // ========== 11. INITIALIZATION ==========
 window.addEventListener('load', () => {
-    console.log("🚀 FlightPulse initializing...");
-    
     const savedFrom = localStorage.getItem('lastSearchFrom');
     const savedTo = localStorage.getItem('lastSearchTo');
     const savedDate = localStorage.getItem('lastDepartDate');
@@ -413,14 +400,65 @@ window.addEventListener('load', () => {
     const greetingEl = document.getElementById('greetingMsg');
     if (greetingEl) greetingEl.innerHTML = `${greeting}, Captain ✈️`;
     
-    // Initialize airport autocomplete
     setupAirportSearch('fromInput', 'fromSuggestions');
     setupAirportSearch('destInput', 'destSuggestions');
-      // Test API connection
+    
     fetch('/api/health')
         .then(res => res.json())
         .then(data => console.log("✅ API connected:", data))
-        .catch(err => console.error("❌ API connection failed:", err));
+        .catch(err => console.error("❌ API failed:", err));
     
     console.log("✅ FlightPulse ready!");
 });
+
+// ========== 12. CSS STYLES ==========
+if (!document.querySelector('#flightpulse-styles')) {
+    const style = document.createElement('style');
+    style.id = 'flightpulse-styles';
+    style.textContent = `
+        .loader {
+            width: 28px;
+            height: 28px;
+            border: 3px solid #e2e8f0;
+            border-top-color: #2563EB;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: inline-block;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .fade-in {
+            opacity: 0;
+            animation: fadeIn 0.4s ease forwards;
+        }
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+        .dropdown-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+            max-height: 250px;
+            overflow-y: auto;
+            z-index: 50;
+            margin-top: 4px;
+        }
+        .suggestion-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .suggestion-item:hover {
+            background: #f3f4f6;
+        }
+        .pb-safe {
+            padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+        }
+    `;
+    document.head.appendChild(style);
+}
