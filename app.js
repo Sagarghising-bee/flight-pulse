@@ -210,12 +210,24 @@ function renderFlightResults(flights, from, to, googleFlightsUrl) {
         // Call the Eco Calculator directly from inside this file
         const ecoData = getCarbonFootprint(flight.total_duration, stops);
         
-        // 👑 NEW: Smart Luggage Scanner
-        let luggageInfo = "🧳 Carry-on Included"; // Premium fallback
+                // 👑 NEW: Smart Luggage Scanner with KGs
+        let luggageInfo = "🧳 7kg Cabin Bag"; // International standard fallback
         if (flight.extensions && flight.extensions.length > 0) {
             const bagInfo = flight.extensions.find(ext => ext.toLowerCase().includes('bag'));
-            if (bagInfo) luggageInfo = "🧳 " + bagInfo;
+            if (bagInfo) {
+                // Intercept Google's generic text and add specific weights
+                if (bagInfo.toLowerCase().includes('carry-on')) {
+                    luggageInfo = "🧳 7kg Carry-on Included";
+                } else if (bagInfo.toLowerCase().includes('no overhead')) {
+                    luggageInfo = "🎒 Personal Item Only (Under Seat)";
+                } else if (bagInfo.toLowerCase().includes('checked')) {
+                    luggageInfo = "🧳 23kg Checked Bag Included";
+                } else {
+                    luggageInfo = "🧳 " + bagInfo;
+                }
+            }
         }
+
         
         const card = document.createElement('div');
         card.className = `bg-white rounded-2xl shadow-sm border ${isCheapest ? 'border-green-300 ring-2 ring-green-200' : 'border-gray-100'} p-5 mb-4 fade-in hover:shadow-md transition-all`;
