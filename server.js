@@ -7,10 +7,10 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// YOUR SERPAPI KEY (Already working)
+// YOUR SERPAPI KEY (Working)
 const SERPAPI_KEY = 'c017ced4ba739491ba8c0d57bd70625f3cd6188eb7db282e742c2a690031dc35';
 
-// ========== FLIGHT SEARCH ENDPOINT (Already Working) ==========
+// ========== FLIGHT SEARCH ENDPOINT ==========
 app.get('/api/search-flights', async (req, res) => {
     const { from, to, departDate, returnDate, adults, children, cabinClass, tripType } = req.query;
     
@@ -70,7 +70,7 @@ app.get('/api/search-flights', async (req, res) => {
     }
 });
 
-// ========== AIRPORT AUTOCOMPLETE ENDPOINT (NEW - USES SERPAPI) ==========
+// ========== AIRPORT AUTOCOMPLETE ENDPOINT ==========
 app.get('/api/airports', async (req, res) => {
     const { query } = req.query;
     
@@ -81,7 +81,6 @@ app.get('/api/airports', async (req, res) => {
     }
     
     try {
-        // Use SerpApi's Google Flights Autocomplete
         const url = `https://serpapi.com/search.json?engine=google_flights_autocomplete&q=${encodeURIComponent(query)}&gl=us&hl=en&api_key=${SERPAPI_KEY}`;
         
         const response = await fetch(url);
@@ -91,7 +90,6 @@ app.get('/api/airports', async (req, res) => {
         
         if (data.suggestions && data.suggestions.length > 0) {
             data.suggestions.forEach(suggestion => {
-                // Add city suggestions as airports (users can type city names)
                 if (suggestion.type === 'city') {
                     airports.push({
                         code: suggestion.name.replace(/\s/g, '').toUpperCase().substring(0, 3),
@@ -102,7 +100,6 @@ app.get('/api/airports', async (req, res) => {
                     });
                 }
                 
-                // Add specific airport suggestions
                 if (suggestion.airports && suggestion.airports.length > 0) {
                     suggestion.airports.forEach(airport => {
                         airports.push({
@@ -117,7 +114,6 @@ app.get('/api/airports', async (req, res) => {
             });
         }
         
-        // Remove duplicates based on code
         const uniqueAirports = [];
         const seenCodes = new Set();
         for (const airport of airports) {
@@ -148,6 +144,4 @@ app.get('*', (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`✅ FlightPulse running on port ${PORT}`);
-    console.log(`🔌 Flight API: /api/search-flights?from=KTM&to=DXB`);
-    console.log(`🔌 Airport API: /api/airports?query=london`);
 });
