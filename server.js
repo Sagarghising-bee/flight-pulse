@@ -7,7 +7,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// YOUR SERPAPI KEY
+// YOUR SERPAPI KEY (Working)
 const SERPAPI_KEY = 'c017ced4ba739491ba8c0d57bd70625f3cd6188eb7db282e742c2a690031dc35';
 
 // ========== FLIGHT SEARCH ENDPOINT ==========
@@ -15,18 +15,10 @@ app.get('/api/search-flights', async (req, res) => {
     const { from, to, departDate, returnDate, adults, children, cabinClass, tripType } = req.query;
     
     console.log(`📡 Flight search: ${from} → ${to}, ${departDate}`);
-    console.log(`📡 Received tripType: "${tripType}"`);
-    console.log(`📡 Received returnDate: "${returnDate}"`);
     
     if (!from || !to || !departDate) {
         return res.status(400).json({ error: 'Missing required parameters' });
     }
-    
-    // FOOLPROOF FIX: Determine if it's a round trip
-    // It's round trip ONLY IF tripType is exactly 'roundtrip' AND returnDate exists
-    const isRoundTrip = (tripType === 'roundtrip' && returnDate && returnDate.length > 0);
-    
-    console.log(`📡 Interpreted as Round Trip: ${isRoundTrip}`);
     
     const classMap = {
         'ECONOMY': '1',
@@ -35,31 +27,30 @@ app.get('/api/search-flights', async (req, res) => {
         'FIRST': '4'
     };
     
-    // Build base URL
-    let apiUrl = `https://serpapi.com/search.json?engine=google_flights&departure_id=${from}&arrival_id=${to}&outbound_date=${departDate}&currency=USD&hl=en&gl=us&adults=${adults}&travel_class=${classMap[cabinClass] || '1'}&api_key=${SERPAPI_KEY}`;
+    // 👑 CRITICAL FIX: Tell Google Flights if it's One-Way (2) or Round-Trip (1)
+    const typeParam = tripType === 'oneway' ? '2' : '1';
+    
+    let apiUrl = `https://serpapi.com/search.json?engine=google_flights&departure_id=${from}&arrival_id=${to}&outbound_date=${departDate}&type=${typeParam}&currency=USD&hl=en&gl=us&adults=${adults}&travel_class=${classMap[cabinClass] || '1'}&api_key=${SERPAPI_KEY}`;
 
     if (children && parseInt(children) > 0) {
         apiUrl += `&children=${children}`;
     }
 
-    // ONLY add return_date for round trips
-    if (isRoundTrip) {
+    // ONLY add return_date for round trips, and NEVER for one-way
+    if (tripType === 'roundtrip' && returnDate && returnDate.length > 0) {
         apiUrl += `&return_date=${returnDate}`;
-        console.log(`  ➤ Adding return_date: ${returnDate}`);
+        console.log(`Round trip: ${from} → ${to} with return on ${returnDate}`);
     } else {
-        console.log(`  ➤ One-way trip: No return_date parameter added`);
+        console.log(`One way: ${from} → ${to}`);
     }
 
     apiUrl += `&deep_search=true`;
-    
-    console.log(`📡 Final URL (truncated): ${apiUrl.substring(0, 200)}...`);
     
     try {
         const response = await fetch(apiUrl);
         const data = await response.json();
         
         if (data.error) {
-            console.error("SerpApi error:", data.error);
             return res.status(400).json({ error: data.error });
         }
         
