@@ -182,7 +182,7 @@ function getCarbonFootprint(durationMins, stops) {
     }
 }
 
-// ========== 7. RENDER FLIGHT RESULTS (UPGRADED WITH LUGGAGE & SHARE) ==========
+// ========== 7. RENDER FLIGHT RESULTS (CLEAN ECO-VERSION) ==========
 function renderFlightResults(flights, from, to, googleFlightsUrl) {
     const container = document.getElementById('flightResults');
     container.innerHTML = '';
@@ -205,29 +205,11 @@ function renderFlightResults(flights, from, to, googleFlightsUrl) {
         const stops = flight.flights ? flight.flights.length - 1 : 0;
         const price = flight.price || flight.total_price || 0;
         
-        let bookingUrl = googleFlightsUrl || `https://www.google.com/travel/flights?q=flights+from+${from}+to+${to}`;
+        let bookingUrl = googleFlightsUrl || `https://www.google.com/travel/flights`;
         
-        // Call the Eco Calculator directly from inside this file
+        // Carbon Calculator - Core Project Feature
         const ecoData = getCarbonFootprint(flight.total_duration, stops);
         
-        // 👑 NEW: Smart Luggage Scanner with KGs
-        let luggageInfo = "🧳 7kg Cabin Bag"; // International standard fallback
-        if (flight.extensions && flight.extensions.length > 0) {
-            const bagInfo = flight.extensions.find(ext => ext.toLowerCase().includes('bag'));
-            if (bagInfo) {
-                // Intercept Google's generic text and add specific weights
-                if (bagInfo.toLowerCase().includes('carry-on')) {
-                    luggageInfo = "🧳 7kg Carry-on Included";
-                } else if (bagInfo.toLowerCase().includes('no overhead')) {
-                    luggageInfo = "🎒 Personal Item Only (Under Seat)";
-                } else if (bagInfo.toLowerCase().includes('checked')) {
-                    luggageInfo = "🧳 23kg Checked Bag Included";
-                } else {
-                    luggageInfo = "🧳 " + bagInfo;
-                }
-            }
-        }
-
         const card = document.createElement('div');
         card.className = `bg-white rounded-2xl shadow-sm border ${isCheapest ? 'border-green-300 ring-2 ring-green-200' : 'border-gray-100'} p-5 mb-4 fade-in hover:shadow-md transition-all`;
         card.style.animationDelay = `${idx * 0.05}s`;
@@ -239,7 +221,6 @@ function renderFlightResults(flights, from, to, googleFlightsUrl) {
                     ${flightNumber ? `<span class="text-[10px] text-gray-400">${flightNumber}</span>` : ''}
                     ${isCheapest ? '<span class="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded-lg">🏆 CHEAPEST</span>' : ''}
                     <span class="text-[10px] font-bold px-2 py-1 rounded-lg border ${ecoData.classes}">${ecoData.text}</span>
-                    <span class="text-[10px] font-bold px-2 py-1 rounded-lg border bg-purple-50 text-purple-700 border-purple-200">${luggageInfo}</span>
                 </div>
                 
                 <div class="text-right ml-2 shrink-0">
