@@ -5,19 +5,17 @@ if ('serviceWorker' in navigator) {
         .catch(err => console.log("SW Error:", err));
 }
 
-// ========== 2. YOUR BACKEND URL (Replace with your Render URL) ==========
-const API_URL = '';
-
-// ========== 3. AIRPORT INTEL ==========
+// ========== 2. AIRPORT INTEL DATABASE ==========
 const airportIntel = {
-    "DXB": { tip: "Ultra-busy. Security ~25min. Zen Garden near Gate B7 is quiet.", bestLounge: "Emirates Lounge B Gates", wifi: "DXB Free WiFi" },
+    "LHR": { tip: "Very busy. Allow 3 hours for connections.", bestLounge: "Cathay Pacific Lounge", wifi: "Free 60min" },
+    "BKK": { tip: "Busy but organized. Great food courts.", bestLounge: "Miracle Lounge", wifi: "Free 2 hours" },
+    "DXB": { tip: "Ultra-busy. Security ~25min. Zen Garden near Gate B7.", bestLounge: "Emirates Lounge B Gates", wifi: "DXB Free WiFi" },
     "KTM": { tip: "Moderate crowds. Fast security. Try Himalayan Java for views.", bestLounge: "Civil Aviation Lounge", wifi: "Free 30min" },
     "SIN": { tip: "Very efficient. Jewel Waterfall is a must if 4+ hours.", bestLounge: "SilverKris Lounge", wifi: "Unlimited Free" },
-    "LHR": { tip: "Very busy. Use Flight Connection Centre.", bestLounge: "Cathay Pacific Lounge", wifi: "Free 60min" },
-    "JFK": { tip: "Arrive 3hr early. TSA PreCheck recommended.", bestLounge: "Delta Sky Club T4", wifi: "Free" }
+    "JFK": { tip: "Arrive 3 hours early. TSA PreCheck recommended.", bestLounge: "Delta Sky Club T4", wifi: "Free" }
 };
 
-// ========== 4. TAB SWITCHING ==========
+// ========== 3. TAB SWITCHING ==========
 function switchTab(viewId, btn) {
     ['view-search', 'view-tracker', 'view-layovers'].forEach(id => {
         const el = document.getElementById(id);
@@ -36,7 +34,7 @@ function switchTab(viewId, btn) {
     }
 }
 
-// ========== 5. SEARCH FLIGHTS - LIVE PRICES IN UI ==========
+// ========== 4. SEARCH FLIGHTS - CALL YOUR BACKEND API ==========
 async function searchFlight() {
     const from = document.getElementById('fromInput').value.trim().toUpperCase();
     const to = document.getElementById('destInput').value.trim().toUpperCase();
@@ -46,9 +44,11 @@ async function searchFlight() {
         return;
     }
 
+    // Save to localStorage
     localStorage.setItem('lastSearchFrom', from);
     localStorage.setItem('lastSearchTo', to);
 
+    // Hide trending section
     const trending = document.getElementById('trendingSection');
     if (trending) trending.style.display = 'none';
 
@@ -60,12 +60,12 @@ async function searchFlight() {
         infoText.innerHTML = `
             <div class="space-y-1">
                 <p>📍 <strong>${to}</strong>: ${airport.tip}</p>
-                <p>🛋️ Lounge: ${airport.bestLounge}</p>
+                <p>🛋️ Best lounge: ${airport.bestLounge}</p>
                 <p>📶 WiFi: ${airport.wifi}</p>
             </div>
         `;
     } else if (infoText) {
-        infoText.innerText = `✈️ Flying to ${to}. Compare prices below.`;
+        infoText.innerText = `✈️ Flying to ${to}. Getting live prices...`;
     }
     if (infoBox) infoBox.classList.remove('hidden');
     
@@ -80,12 +80,13 @@ async function searchFlight() {
     `;
     
     try {
-        // Call your free backend API
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 30);
-        const date = tomorrow.toISOString().split('T')[0];
+        // IMPORTANT: Use RELATIVE path (same domain as your app)
+        const response = await fetch(`/api/flights?from=${from}&to=${to}`);
         
-        const response = await fetch(`${API_URL}/api/flights?from=${from}&to=${to}&date=${date}`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
         const data = await response.json();
         
         if (data.success && data.flights && data.flights.length > 0) {
@@ -118,7 +119,7 @@ function renderLiveFlightCards(flights, from, to) {
     const timestamp = flights[0]?.lastUpdated || new Date().toLocaleTimeString();
     const header = document.createElement('div');
     header.className = 'text-right text-[10px] text-gray-400 mb-2';
-    header.innerText = `🟢 Live prices • Updated ${timestamp}`;
+    header.innerHTML = `🟢 Live prices • Updated ${timestamp} • <span class="text-green-600">${flights.length} flights found</span>`;
     container.appendChild(header);
     
     flights.forEach((flight, idx) => {
@@ -127,7 +128,7 @@ function renderLiveFlightCards(flights, from, to) {
         card.className = `bg-white rounded-2xl shadow-sm border ${isCheapest ? 'border-green-300 ring-2 ring-green-200' : 'border-gray-100'} p-5 mb-4 fade-in hover:shadow-md transition-all`;
         card.style.animationDelay = `${idx * 0.05}s`;
         
-        const stopText = flight.stops === 0 ? "🟢 Direct" : `🔁 ${flight.stops} stop`;
+        const stopText = flight.stops === 0 ? "🟢 Direct" : `🔁 ${flight.stops} stop${flight.stops > 1 ? 's' : ''}`;
         const priceColor = isCheapest ? "text-green-600" : "text-gray-900";
         const priceBadge = isCheapest ? '<span class="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded-lg ml-2">🏆 CHEAPEST</span>' : '';
         
@@ -175,21 +176,21 @@ function renderLiveFlightCards(flights, from, to) {
         container.appendChild(card);
     });
     
-    // Add note about price freshness
+    // Add note
     const note = document.createElement('div');
     note.className = 'text-center text-[10px] text-gray-400 mt-2 mb-8';
     note.innerHTML = `💡 Prices update daily. Click "Book Now" for final price on airline website.`;
     container.appendChild(note);
 }
 
-// ========== 6. FILL SEARCH FROM TRENDING ==========
+// ========== 5. FILL SEARCH FROM TRENDING ==========
 function fillSearch(from, to) {
     document.getElementById('fromInput').value = from;
     document.getElementById('destInput').value = to;
     searchFlight();
 }
 
-// ========== 7. LIVE TRACKER ==========
+// ========== 6. LIVE TRACKER ==========
 async function trackFlight(btn) {
     const flightNo = document.getElementById('flightNoInput').value.trim().toUpperCase();
     if (!flightNo) {
@@ -217,10 +218,13 @@ async function trackFlight(btn) {
     btn.disabled = false;
 }
 
-// ========== 8. LAYOVER INTEL ==========
+// ========== 7. LAYOVER INTEL ==========
 async function getLayoverIntel(btn) {
     const airport = document.getElementById('airportInput').value.trim().toUpperCase();
-    if (!airport) return;
+    if (!airport) {
+        alert("Please enter an airport code (e.g., DXB, LHR, BKK)");
+        return;
+    }
     
     const originalText = btn.innerText;
     btn.innerText = "🔍 Scanning...";
@@ -235,11 +239,21 @@ async function getLayoverIntel(btn) {
     
     document.getElementById('layoverResult').innerHTML = `
         <div class="bg-orange-50 border border-orange-200 rounded-2xl p-5 text-left fade-in mt-4">
-            <h3 class="font-bold text-orange-800 text-lg mb-3">📍 ${airport} Intel</h3>
+            <h3 class="font-bold text-orange-800 text-lg mb-3">📍 ${airport} Airport Intel</h3>
             <div class="space-y-2 text-sm">
                 <p class="text-orange-700">💡 ${intel.tip}</p>
                 <p class="text-orange-700">🛋️ Lounge: ${intel.bestLounge}</p>
                 <p class="text-orange-700">📶 WiFi: ${intel.wifi}</p>
+            </div>
+            <div class="flex gap-2 mt-4">
+                <button onclick="window.open('https://www.google.com/search?q=${airport}+airport+guide', '_blank')" 
+                        class="flex-1 bg-orange-100 text-orange-700 font-bold py-2 rounded-xl text-sm hover:bg-orange-200 transition">
+                    🔍 Full Guide
+                </button>
+                <button onclick="window.open('https://www.flightradar24.com/airport/${airport}', '_blank')" 
+                        class="flex-1 bg-blue-100 text-blue-700 font-bold py-2 rounded-xl text-sm hover:bg-blue-200 transition">
+                    📡 Live Traffic
+                </button>
             </div>
         </div>
     `;
@@ -247,7 +261,7 @@ async function getLayoverIntel(btn) {
     btn.innerText = originalText;
 }
 
-// ========== 9. INITIALIZATION ==========
+// ========== 8. INITIALIZATION ==========
 window.addEventListener('load', () => {
     const savedFrom = localStorage.getItem('lastSearchFrom');
     const savedTo = localStorage.getItem('lastSearchTo');
@@ -261,9 +275,15 @@ window.addEventListener('load', () => {
     const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
     const greetingEl = document.getElementById('greetingMsg');
     if (greetingEl) greetingEl.innerHTML = `${greeting}, Captain ✈️`;
+    
+    // Test API connection on load
+    fetch('/api/health')
+        .then(res => res.json())
+        .then(data => console.log("✅ API connected:", data))
+        .catch(err => console.error("❌ API connection failed:", err));
 });
 
-// CSS
+// ========== 9. CSS STYLES ==========
 if (!document.querySelector('#flightpulse-styles')) {
     const style = document.createElement('style');
     style.id = 'flightpulse-styles';
@@ -278,4 +298,4 @@ if (!document.querySelector('#flightpulse-styles')) {
     document.head.appendChild(style);
 }
 
-console.log("✅ FlightPulse ready - Live prices in your UI!");
+console.log("✅ FlightPulse ready - API at /api/flights");
