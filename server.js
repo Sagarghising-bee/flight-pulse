@@ -28,16 +28,20 @@ app.get('/api/search-flights', async (req, res) => {
     };
     
     let apiUrl = `https://serpapi.com/search.json?engine=google_flights&departure_id=${from}&arrival_id=${to}&outbound_date=${departDate}&currency=USD&hl=en&gl=us&adults=${adults}&travel_class=${classMap[cabinClass] || '1'}&api_key=${SERPAPI_KEY}`;
-    
-    if (children && parseInt(children) > 0) {
-        apiUrl += `&children=${children}`;
-    }
-    
-    if (tripType === 'roundtrip' && returnDate) {
-        apiUrl += `&return_date=${returnDate}`;
-    }
-    
-    apiUrl += `&deep_search=true`;
+
+if (children && parseInt(children) > 0) {
+    apiUrl += `&children=${children}`;
+}
+
+// ONLY add return_date for round trips, and NEVER for one-way
+if (tripType === 'roundtrip' && returnDate && returnDate.length > 0) {
+    apiUrl += `&return_date=${returnDate}`;
+    console.log(`Round trip: ${from} → ${to} with return on ${returnDate}`);
+} else {
+    console.log(`One way: ${from} → ${to}`);
+}
+
+apiUrl += `&deep_search=true`;
     
     try {
         const response = await fetch(apiUrl);
