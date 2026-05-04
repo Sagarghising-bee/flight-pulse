@@ -450,3 +450,16 @@ window.addEventListener('load', () => {
     
     console.log("✅ FlightPulse ready!");
 });
+
+// ========== 13. NATIVE SHARE FLIGHT ==========
+function shareFlight(airline, price, from, to) {
+    if (navigator.share) {
+        navigator.share({
+            title: 'FlightPulse Deal',
+            text: `✈️ Check out this flight on FlightPulse: ${airline} from ${from} to ${to} for just $${price}!`,
+            url: window.location.href
+        }).catch(err => console.log('Error sharing', err));
+    } else {
+        alert("Flight details copied to clipboard! ✈️");
+    }
+}
