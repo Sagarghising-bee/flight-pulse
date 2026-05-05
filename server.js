@@ -8,7 +8,7 @@ app.use(express.json());
 app.use(express.static(__dirname));
 
 // YOUR SERPAPI KEY (Working)
-const SERPAPI_KEY = 'c017ced4ba739491ba8c0d57bd70625f3cd6188eb7db282e742c2a690031dc35';
+const SERPAPI_KEY = '934a7325f0321ca677d0b4915b49ebf284836a171f2fd5a454e4f21417f5ff76';
 
 // ========== FLIGHT SEARCH ENDPOINT ==========
 app.get('/api/search-flights', async (req, res) => {
