@@ -205,7 +205,11 @@ function renderFlightResults(flights, from, to, googleFlightsUrl) {
         const stops = flight.flights ? flight.flights.length - 1 : 0;
         const price = flight.price || flight.total_price || 0;
         
-        let bookingUrl = googleFlightsUrl || `https://www.google.com/travel/flights`;
+        //  BULLETPROOF BOOKING LINK: dynamically builds the search if the API drops the link
+let bookingUrl = (googleFlightsUrl && googleFlightsUrl.length > 30 && !googleFlightsUrl.includes('googleusercontent')) 
+    ? googleFlightsUrl 
+    : `https://www.google.com/travel/flights?q=Flights%20from%20${from}%20to%20${to}`;
+        
         
         // Carbon Calculator - Core Project Feature
         const ecoData = getCarbonFootprint(flight.total_duration, stops);
