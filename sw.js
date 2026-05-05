@@ -1,26 +1,38 @@
-const CACHE_NAME = 'flightpulse-v7';
+//  BUMPED TO V8: Forces the phone to clear old ghost data!
+const CACHE_NAME = 'flightpulse-v8'; 
 const urlsToCache = [
   '/',
   '/index.html',
   '/app.js',
+  '/style.css', // ✅ Your CSS is safely back in the cache!
   'https://cdn.tailwindcss.com'
-  // ⚠️ Removed style.css unless you actually have that file in your root!
 ];
 
 self.addEventListener('install', event => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
-      console.log('✅ App Shell Pre-cached');
+      console.log('✅ App Shell Pre-cached (v8)');
       return cache.addAll(urlsToCache);
     })
   );
 });
 
 self.addEventListener('activate', event => {
-  // 👑 CRITICAL: Takes control of the app immediately so it works on the first visit
-  event.waitUntil(clients.claim());
-  console.log('🚀 Service Worker Activated');
+  // Takes control immediately & deletes old v7 caches
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          if (cacheName !== CACHE_NAME) {
+            console.log('🧹 Clearing old cache:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    }).then(() => clients.claim())
+  );
+  console.log('🚀 Service Worker Activated (v8)');
 });
 
 self.addEventListener('fetch', event => {
@@ -29,12 +41,10 @@ self.addEventListener('fetch', event => {
     return; 
   }
   
-  // 2. Strategy: Cache First, then Network
-  // This is best for a "Cold Boot" because it loads the UI instantly from local storage
+  // 2. Cache-First Strategy for Offline Resilience
   event.respondWith(
     caches.match(event.request).then(response => {
       return response || fetch(event.request).catch(() => {
-        // 3. Offline Fallback: If network fails and it's a page request, show index.html
         if (event.request.mode === 'navigate') {
           return caches.match('/index.html');
         }
