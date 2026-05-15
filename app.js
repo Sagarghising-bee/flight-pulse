@@ -5,7 +5,23 @@ if ('serviceWorker' in navigator) {
         .catch(err => console.log("SW Error:", err));
 }
 
-// ========== 2. AIRPORT INTEL DATABASE ==========
+// ========== 2. RENDER API CONFIGURATION ==========
+// IMPORTANT: Replace with your actual Render URL after deployment
+// Example: https://flightpulse-api.onrender.com
+const API_BASE_URL = ''; // Leave empty to use relative path (works locally and on Render)
+
+// Auto-detect API URL
+const getApiUrl = () => {
+    if (API_BASE_URL) return API_BASE_URL;
+    // If we're on Render, use the current origin
+    if (window.location.hostname.includes('onrender.com')) {
+        return window.location.origin;
+    }
+    // Local development
+    return '';
+};
+
+// ========== 3. AIRPORT INTEL DATABASE ==========
 const airportIntel = {
     "LHR": { tip: "Very busy. Allow 3 hours for connections.", bestLounge: "Cathay Pacific Lounge", wifi: "Free 60min" },
     "BKK": { tip: "Busy but organized. Great food courts.", bestLounge: "Miracle Lounge", wifi: "Free 2 hours" },
@@ -19,7 +35,7 @@ const airportIntel = {
     "IST": { tip: "Huge airport! Allow 3hr+ for connections.", bestLounge: "Turkish Airlines Lounge", wifi: "Unlimited Free" }
 };
 
-// ========== 3. TRIP TYPE STATE ==========
+// ========== 4. TRIP TYPE STATE ==========
 let currentTripType = 'oneway';
 
 function setTripType(type) {
@@ -53,7 +69,7 @@ function setTripType(type) {
     }
 }
 
-// ========== 4. TAB SWITCHING ==========
+// ========== 5. TAB SWITCHING ==========
 function switchTab(viewId, btn) {
     const views = ['view-search', 'view-tracker', 'view-layovers'];
     views.forEach(id => {
@@ -74,7 +90,7 @@ function switchTab(viewId, btn) {
     }
 }
 
-// ========== 5. MAIN SEARCH FUNCTION ==========
+// ========== 6. MAIN SEARCH FUNCTION ==========
 async function searchFlight() {
     const from = document.getElementById('fromInput').value.trim().toUpperCase();
     const to = document.getElementById('destInput').value.trim().toUpperCase();
@@ -93,6 +109,15 @@ async function searchFlight() {
         alert("Please select a departure date 📅");
         return;
     }
+
+    console.log(`🔍 Search initiated:`);
+    console.log(`  From: ${from}, To: ${to}`);
+    console.log(`  Depart: ${departDate}`);
+    console.log(`  Trip Type: ${currentTripType}`);
+    if (currentTripType === 'roundtrip') {
+        console.log(`  Return: ${returnDate}`);
+    }
+    console.log(`  Adults: ${adults}, Children: ${children}, Cabin: ${cabinClass}`);
 
     localStorage.setItem('lastSearchFrom', from);
     localStorage.setItem('lastSearchTo', to);
@@ -119,17 +144,20 @@ async function searchFlight() {
     container.innerHTML = `
         <div class="text-center py-12">
             <div class="loader mx-auto"></div>
-            <p class="mt-4 text-gray-500 font-medium">Searching real flight prices...</p>
+            <p class="mt-4 text-gray-500 font-medium">Searching real flight prices via Apify...</p>
             <p class="text-xs text-gray-400 mt-2">${from} → ${to} • ${departDate} • ${adults} adult${adults > 1 ? 's' : ''}</p>
         </div>
     `;
     
     try {
-        let apiUrl = `/api/search-flights?from=${from}&to=${to}&departDate=${departDate}&adults=${adults}&children=${children}&cabinClass=${cabinClass}&tripType=${currentTripType}`;
+        const baseUrl = getApiUrl();
+        let apiUrl = `${baseUrl}/api/search-flights?from=${from}&to=${to}&departDate=${departDate}&adults=${adults}&children=${children}&cabinClass=${cabinClass}&tripType=${currentTripType}`;
         
         if (currentTripType === 'roundtrip' && returnDate && returnDate.length > 0) {
             apiUrl += `&returnDate=${returnDate}`;
         }
+        
+        console.log("📡 Calling API:", apiUrl);
         
         const response = await fetch(apiUrl);
         const data = await response.json();
@@ -139,7 +167,7 @@ async function searchFlight() {
         }
         
         if (data.success && data.flights && data.flights.length > 0) {
-            renderFlightResults(data.flights, from, to, data.googleFlightsUrl);
+            renderFlightResults(data.flights, from, to);
         } else {
             container.innerHTML = `
                 <div class="bg-yellow-50 rounded-2xl p-8 text-center border border-yellow-200">
@@ -162,34 +190,14 @@ async function searchFlight() {
     }
 }
 
-// ========== 6. PROPRIETARY ECO-CALCULATOR ==========
-function getCarbonFootprint(durationMins, stops) {
-    if (!durationMins) {
-        return { text: "CO₂ Unknown", classes: "bg-gray-100 text-gray-600 border-gray-200" };
-    }
-    
-    // ~1.5 kg of CO2 per minute + 50kg penalty per layover
-    let baseCO2 = durationMins * 1.5;
-    let layoverPenalty = stops * 50; 
-    let totalCO2 = Math.round(baseCO2 + layoverPenalty);
-
-    if (stops === 0 && totalCO2 < 500) {
-        return { text: `🌱 ${totalCO2}kg CO₂ • Eco-Friendly`, classes: "bg-green-50 text-green-700 border-green-200" };
-    } else if (stops >= 2 || totalCO2 > 1000) {
-        return { text: `⚠️ ${totalCO2}kg CO₂ • High Impact`, classes: "bg-red-50 text-red-700 border-red-200" };
-    } else {
-        return { text: `☁️ ${totalCO2}kg CO₂ • Standard`, classes: "bg-slate-50 text-slate-600 border-slate-200" };
-    }
-}
-
-// ========== 7. RENDER FLIGHT RESULTS (CLEAN ECO-VERSION) ==========
-function renderFlightResults(flights, from, to, googleFlightsUrl) {
+// ========== 7. RENDER FLIGHT RESULTS ==========
+function renderFlightResults(flights, from, to) {
     const container = document.getElementById('flightResults');
     container.innerHTML = '';
     
     const header = document.createElement('div');
     header.className = 'text-right text-[10px] text-gray-400 mb-2';
-    header.innerHTML = `🟢 Live Search • ${flights.length} options found • Sorted by price`;
+    header.innerHTML = `🟢 Live from Apify • ${flights.length} options found • Sorted by price`;
     container.appendChild(header);
     
     flights.forEach((flight, idx) => {
@@ -205,15 +213,6 @@ function renderFlightResults(flights, from, to, googleFlightsUrl) {
         const stops = flight.flights ? flight.flights.length - 1 : 0;
         const price = flight.price || flight.total_price || 0;
         
-        //  BULLETPROOF BOOKING LINK: dynamically builds the search if the API drops the link
-let bookingUrl = (googleFlightsUrl && googleFlightsUrl.length > 30 && !googleFlightsUrl.includes('googleusercontent')) 
-    ? googleFlightsUrl 
-    : `https://www.google.com/travel/flights?q=Flights%20from%20${from}%20to%20${to}`;
-        
-        
-        // Carbon Calculator - Core Project Feature
-        const ecoData = getCarbonFootprint(flight.total_duration, stops);
-        
         const card = document.createElement('div');
         card.className = `bg-white rounded-2xl shadow-sm border ${isCheapest ? 'border-green-300 ring-2 ring-green-200' : 'border-gray-100'} p-5 mb-4 fade-in hover:shadow-md transition-all`;
         card.style.animationDelay = `${idx * 0.05}s`;
@@ -223,21 +222,15 @@ let bookingUrl = (googleFlightsUrl && googleFlightsUrl.length > 30 && !googleFli
                 <div class="flex items-center gap-2 flex-wrap">
                     <span class="text-xs font-bold bg-blue-50 text-blue-700 px-3 py-1 rounded-lg">${airline}</span>
                     ${flightNumber ? `<span class="text-[10px] text-gray-400">${flightNumber}</span>` : ''}
-                    ${isCheapest ? '<span class="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded-lg">🏆 CHEAPEST</span>' : ''}
-                    <span class="text-[10px] font-bold px-2 py-1 rounded-lg border ${ecoData.classes}">${ecoData.text}</span>
+                    ${isCheapest ? '<span class="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded-lg ml-2">🏆 CHEAPEST</span>' : ''}
                 </div>
-                
-                <div class="text-right ml-2 shrink-0">
+                <div class="text-right">
                     <span class="text-2xl font-bold text-gray-900">$${price}</span>
                     <span class="text-[10px] text-gray-400 block">${stops === 0 ? 'Direct' : stops + ' stop' + (stops > 1 ? 's' : '')}</span>
-                    
-                    <button onclick="shareFlight('${airline}', '${price}', '${from}', '${to}')" class="text-blue-500 hover:text-blue-700 text-xs font-bold flex items-center justify-end w-full gap-1 mt-2">
-                        📤 Share
-                    </button>
                 </div>
             </div>
             
-            <div class="flex justify-between items-center mb-4 mt-4">
+            <div class="flex justify-between items-center mb-4">
                 <div class="text-center">
                     <p class="text-xl font-bold text-gray-800">${depTime}</p>
                     <p class="text-gray-400 text-[10px] font-bold">${from}</p>
@@ -252,16 +245,18 @@ let bookingUrl = (googleFlightsUrl && googleFlightsUrl.length > 30 && !googleFli
                 </div>
             </div>
             
-            <button onclick="window.open('${bookingUrl}', '_blank')" 
+            <button onclick="window.open('https://www.google.com/travel/flights?q=flights+from+${from}+to+${to}', '_blank')" 
                     class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition text-sm flex items-center justify-center gap-2">
                 ✈️ Book on Google Flights — $${price}
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
             </button>
+            <p class="text-[10px] text-center text-gray-400 mt-2">
+                ✓ Real-time prices • Redirects to Google Flights
+            </p>
         `;
         container.appendChild(card);
     });
 }
-
-
 
 // ========== 8. FILL SEARCH FROM TRENDING ==========
 function fillSearch(from, to) {
@@ -371,7 +366,8 @@ function setupAirportSearch(inputId, suggestionsId) {
         
         searchTimeout = setTimeout(async () => {
             try {
-                const response = await fetch(`/api/airports?query=${encodeURIComponent(query)}`);
+                const baseUrl = getApiUrl();
+                const response = await fetch(`${baseUrl}/api/airports?query=${encodeURIComponent(query)}`);
                 const data = await response.json();
                 
                 if (data.airports && data.airports.length > 0) {
@@ -404,10 +400,10 @@ function selectAirport(inputId, code, name, city) {
     const suggestionsId = inputId === 'fromInput' ? 'fromSuggestions' : 'destSuggestions';
     document.getElementById(suggestionsId).classList.add('hidden');
 }
-
 // ========== 12. INITIALIZATION ==========
 window.addEventListener('load', () => {
     console.log("🚀 FlightPulse initializing...");
+    console.log(`📍 API Base URL: ${getApiUrl() || '(relative path)'}`);
     
     const savedFrom = localStorage.getItem('lastSearchFrom');
     const savedTo = localStorage.getItem('lastSearchTo');
@@ -428,26 +424,15 @@ window.addEventListener('load', () => {
     const greetingEl = document.getElementById('greetingMsg');
     if (greetingEl) greetingEl.innerHTML = `${greeting}, Captain ✈️`;
     
+    // Initialize airport autocomplete
     setupAirportSearch('fromInput', 'fromSuggestions');
     setupAirportSearch('destInput', 'destSuggestions');
     
-    fetch('/api/health')
+    // Test API connection
+    fetch(`${getApiUrl()}/api/health`)
         .then(res => res.json())
         .then(data => console.log("✅ API connected:", data))
         .catch(err => console.error("❌ API connection failed:", err));
     
     console.log("✅ FlightPulse ready!");
 });
-
-// ========== 13. NATIVE SHARE FLIGHT ==========
-function shareFlight(airline, price, from, to) {
-    if (navigator.share) {
-        navigator.share({
-            title: 'FlightPulse Deal',
-            text: `✈️ Check out this flight on FlightPulse: ${airline} from ${from} to ${to} for just $${price}!`,
-            url: window.location.href
-        }).catch(err => console.log('Error sharing', err));
-    } else {
-        alert("Flight details copied to clipboard! ✈️");
-    }
-}
