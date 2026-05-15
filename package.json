@@ -1,16 +1,14 @@
 {
   "name": "flightpulse-api",
   "version": "1.0.0",
-  "description": "FlightPulse PWA with live flight prices",
+  "description": "FlightPulse with Apify integration",
   "main": "server.js",
-  "engines": {
-    "node": ">=18.0.0"
-  },
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "cors": "^2.8.5"
+    "cors": "^2.8.5",
+    "apify-client": "^2.7.1"
   }
 }
